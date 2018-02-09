@@ -31,10 +31,25 @@ val loggingDependencies = Seq(
 
 val scorexDependencies = Seq(
   "org.scorexfoundation" % "scorex-core_2.12" % "master-05508f49",
-  "scorex-testkit" % "scorex-testkit_2.12" % "master-05508f49"
+  "scorex-testkit" % "scorex-testkit_2.12" % "master-05508f49",
+  "org.scorexfoundation" %% "scrypto" % "2.+",
+  "org.scorexfoundation" %% "iodb" % "0.3.2"
 )
 
-libraryDependencies in ThisBuild ++=  testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
+val circeVersion = "0.8.0"
+
+libraryDependencies in ThisBuild ++= Seq(
+  "com.iheart" %% "ficus" % "1.4.2",
+  "org.scorexfoundation" %% "scrypto" % "2.+",
+  "io.circe" %% "circe-core" % circeVersion,
+  "io.circe" %% "circe-generic" % circeVersion,
+  "io.circe" %% "circe-parser" % circeVersion,
+  "org.bitlet" % "weupnp" % "0.1.+",
+  "commons-net" % "commons-net" % "3.+"
+
+) ++ testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
+
+lazy val basics = Project(id = "aeneas", base = file("."))
 
 test in assembly := {}//TODO
 assemblyMergeStrategy in assembly := {

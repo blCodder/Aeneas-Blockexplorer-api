@@ -19,3 +19,6 @@ logs
 scalate
 .testcontainers*
 *iml
+scorex.log
+scorex-errors.log
+.DS_Store
