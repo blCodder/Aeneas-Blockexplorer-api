@@ -30,7 +30,8 @@ val loggingDependencies = Seq(
 )
 
 val scorexDependencies = Seq(
-  "org.scorexfoundation" % "scorex-core_2.12" % "master-05508f49"
+  "org.scorexfoundation" % "scorex-core_2.12" % "master-05508f49",
+  "scorex-testkit" % "scorex-testkit_2.12" % "master-05508f49"
 )
 
 libraryDependencies in ThisBuild ++=  testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
