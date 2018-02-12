@@ -49,7 +49,7 @@ libraryDependencies in ThisBuild ++= Seq(
 
 ) ++ testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
 
-lazy val basics = Project(id = "aeneas", base = file("."))
+mainClass in assembly := Some("SimpleBlockChain")
 
 test in assembly := {}//TODO
 assemblyMergeStrategy in assembly := {
