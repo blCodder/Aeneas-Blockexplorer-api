@@ -11,8 +11,7 @@ import settings.SimpleSettings
   */
 class VerySimpleSyncInfoSerializerTest extends org.scalatest.FunSuite {
   test ("From Air SyncInfo Serialize") {
-    val config = "/Users/flystyle/Documents/Work/Scorex_Aeneas/Scorex/simpleblockchain/src/main/resources/settings.conf"
-    val settings = SimpleSettings.read(Some(config))
+    val settings = SimpleSettings.read()
     val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
     val block1 = new PowBlock(

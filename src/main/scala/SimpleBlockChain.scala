@@ -17,7 +17,7 @@ import settings.{SimpleLocalInterface, SimpleSettings}
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain(val config : String) extends Application with ScorexLogging {
+class SimpleBlockChain() extends Application with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
@@ -26,10 +26,10 @@ class SimpleBlockChain(val config : String) extends Application with ScorexLoggi
    type HIS = SimpleHistory
    type MPOOL = SimpleBoxTransactionMemPool
 
-   private val simpleSettings : SimpleSettings = SimpleSettings.read(Some(config))
+   private val simpleSettings : SimpleSettings = SimpleSettings.read()
 
    // Note : NEVER NEVER forget to mark implicit as LAZY!
-   override implicit lazy val settings: ScorexSettings = SimpleSettings.read(Some(config)).scorexSettings
+   override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
    log.info(s"SimpleBlokchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
@@ -67,5 +67,5 @@ class SimpleBlockChain(val config : String) extends Application with ScorexLoggi
 object SimpleBlockChain extends App {
    val settingsFilename = args.headOption.getOrElse("settings.conf")
 
-   new SimpleBlockChain(settingsFilename).run()
+   new SimpleBlockChain().run()
 }
