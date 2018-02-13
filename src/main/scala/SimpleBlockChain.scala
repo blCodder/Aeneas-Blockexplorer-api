@@ -17,7 +17,7 @@ import settings.{SimpleLocalInterface, SimpleSettings}
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain() extends Application with ScorexLogging {
+class SimpleBlockChain extends Application with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
@@ -31,6 +31,7 @@ class SimpleBlockChain() extends Application with ScorexLogging {
    // Note : NEVER NEVER forget to mark implicit as LAZY!
    override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
+   log.debug(s"full settings: $simpleSettings")
    log.info(s"SimpleBlokchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new VerySimpleNodeViewHolder(settings, simpleSettings.miningSettings)))
@@ -42,6 +43,8 @@ class SimpleBlockChain() extends Application with ScorexLogging {
         NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
    log.info(s"SimpleBlokchain : API length : ${apiRoutes.size}")
 
+   private val miner = actorSystem.actorOf(Props(new Miner(nodeViewHolderRef,
+      simpleSettings.miningSettings, SimpleHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
 
    override val localInterface: ActorRef =
    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
@@ -53,19 +56,14 @@ class SimpleBlockChain() extends Application with ScorexLogging {
          new NodeViewSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL]
          (networkControllerRef, nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider)))
 
-   val miner = actorSystem.actorOf(Props(new Miner(nodeViewHolderRef,
-      simpleSettings.miningSettings, SimpleHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
-
-   miner
-
    /**
      * API description in openapi format in YAML or JSON
      */
    override val swaggerConfig: String = ""
 }
 
-object SimpleBlockChain extends App {
-   val settingsFilename = args.headOption.getOrElse("settings.conf")
-
-   new SimpleBlockChain().run()
+object SimpleBlockChain {
+   def main(args: Array[String]): Unit = {
+      new SimpleBlockChain().run()
+   }
 }
