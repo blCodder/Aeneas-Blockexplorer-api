@@ -117,23 +117,22 @@ case class AeneasWallet(seed: ByteStr, store: LSMStore)
 object AeneasWallet {
 
    def walletFile(settings: ScorexSettings): File = {
-      settings.wallet.walletDir.mkdirs()
+      if (!settings.wallet.walletDir.exists()) settings.wallet.walletDir.mkdirs()
 
-      new File(s"${settings.wallet.walletDir.getAbsolutePath}/wallet.dat")
+      new File(s"${settings.wallet.walletDir.getAbsolutePath}/wallet.dat") //TODO WTF?????
+
    }
 
    def exists(settings: ScorexSettings): Boolean = walletFile(settings).exists()
 
    def readOrGenerate(settings: ScorexSettings, seed: ByteStr): AeneasWallet = {
-      val wFile = walletFile(settings)
-      wFile.mkdirs()
+      val wFile = settings.wallet.walletDir
+      if (wFile.exists) settings.wallet.walletDir.mkdirs
+      println(s"wFile path:${wFile.getAbsolutePath}")
       val boxesStorage = new LSMStore(wFile, maxJournalEntryCount = 10000)
-
-      Runtime.getRuntime.addShutdownHook(new Thread() {
-         override def run(): Unit = {
-            boxesStorage.close()
-         }
-      })
+      sys.addShutdownHook{
+        boxesStorage.close()
+      }
 
       AeneasWallet(seed, boxesStorage)
    }

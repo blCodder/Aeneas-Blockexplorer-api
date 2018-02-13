@@ -1,11 +1,10 @@
 package settings
 
-import com.typesafe.config.Config
+import com.typesafe.config.{Config, ConfigFactory}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 import net.ceedubs.ficus.readers.ValueReader
 import scorex.core.ModifierId
-import scorex.core.settings.ScorexSettings.readConfigFromPath
 import scorex.core.settings._
 import scorex.core.utils.ScorexLogging
 
@@ -32,8 +31,12 @@ case class SimpleMiningSettings(offlineGen : Boolean,
 case class SimpleSettings(scorexSettings: ScorexSettings, miningSettings: SimpleMiningSettings)
 
 object SimpleSettings extends ScorexLogging with SettingsReaders {
-   def read(userConfigPath: Option[String]): SimpleSettings = {
-      fromConfig(readConfigFromPath(userConfigPath, "scorex"))
+   def read(): SimpleSettings = {
+      val config = ConfigFactory.load()
+      if (!config.hasPath("scorex")) {
+         throw new Error("Malformed configuration file was provided! Aborting!")//TODO remove throw Exception with Try
+      }
+      fromConfig(config)
    }
 
    implicit val networkSettingsValueReader: ValueReader[SimpleSettings] =
