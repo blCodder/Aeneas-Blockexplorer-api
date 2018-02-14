@@ -3,7 +3,7 @@ import block.AeneasBlock
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
 import history.{SimpleHistory, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
 import mining.Miner
-import scorex.core.api.http.ApiRoute
+import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
 import scorex.core.app.Application
 import scorex.core.network.NodeViewSynchronizer
 import scorex.core.network.message.MessageSpec
@@ -37,8 +37,7 @@ class SimpleBlockChain extends Application with ScorexLogging {
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new VerySimpleNodeViewHolder(settings, simpleSettings.miningSettings)))
    log.info(s"SimpleBlokchain : NodeViewHolder Actor was initialized : ${nodeViewHolderRef.path}")
 
-
-   override val apiRoutes: Seq[ApiRoute] = Seq()
+   override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 
    private val miner = actorSystem.actorOf(Props(new Miner(nodeViewHolderRef,
       simpleSettings.miningSettings, SimpleHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
