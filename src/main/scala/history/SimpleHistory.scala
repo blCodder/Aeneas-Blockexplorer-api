@@ -34,7 +34,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      * @return append modifier to history
      */
    override def append(block: AeneasBlock): Try[(SimpleHistory, History.ProgressInfo[AeneasBlock])] = Try {
-      log.debug(s"Trying to append block ${Base58.encode(block.id)} to history")
+      log.info(s"Trying to append block ${Base58.encode(block.id)} to history")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
             log.warn(s"Failed to validate block ${Base58.encode(block.id)}")
@@ -44,7 +44,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       val progressInfo: ProgressInfo[AeneasBlock] =
          if (storage.isGenesis(block)) {
             storage.update(block, None, isBest = true)
-            log.debug(s"History.append postappend length : ${storage.height}")
+            log.info(s"History.append postappend length : ${storage.height}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
             storage.heightOf(block.parentId) match {
@@ -112,7 +112,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
    def continuationsIds(from: Seq[(ModifierTypeId, ModifierId)], size: Int): Option[ModifierIds] = {
       def inList(m: AeneasBlock): Boolean = idInList(m.id) || storage.isGenesis(m)
 
-      def idInList(id: ModifierId): Boolean = from.exists(f => f._2 sameElements id)
+      def idInList(id: ModifierId): Boolean = from.exists(f => f._2.deep == id.deep)
 
       //Look without limit for case difference between nodes is bigger then size
       chainBack(storage.bestBlock, inList) match {
@@ -122,6 +122,10 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
             None
          case _ => None
       }
+   }
+
+   def lastBlockIds(startBlock: AeneasBlock, count: Int): Seq[ModifierId] = {
+      chainBack(startBlock, storage.isGenesis, count - 1).get.map(_._2)
    }
 
    /**
@@ -172,39 +176,13 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      * @return Equal if nodes have the same history, Younger if another node is behind, Older if a new node is ahead
      */
    override def compare(other: VerySimpleSyncInfo): HistoryComparisonResult.Value = {
-      val dSuffix = divergentSuffix(other.lastBlocks.reverse)
+      if (other.lastBlocks.isEmpty)
+         HistoryComparisonResult.Nonsense
 
-      dSuffix.length match {
-         case 0 =>
-            log.warn(s"Comparation nonsense result : ${other.lastBlocks.toList.map(Base58.encode)} at height $height}")
-            HistoryComparisonResult.Nonsense
-         case _ =>
-            // +1 to include common block
-            val localSuffixLength = storage.heightOf(storage.bestPowId).get - storage.heightOf(dSuffix.last).get
-            val otherSuffixLength = dSuffix.length
-
-            if (localSuffixLength < otherSuffixLength)
-               HistoryComparisonResult.Older
-            else if (localSuffixLength == otherSuffixLength)
-               HistoryComparisonResult.Equal
-            else HistoryComparisonResult.Younger
-      }
-   }
-
-   @tailrec
-   private def divergentSuffix(otherLastPowBlocks: Seq[ModifierId],
-                               suffixFound: Seq[ModifierId] = Seq()): Seq[ModifierId] = {
-      val head = otherLastPowBlocks.head
-      val newSuffix = suffixFound :+ head
-      modifierById(head) match {
-         case Some(b) =>
-            newSuffix
-         case None => if (otherLastPowBlocks.length <= 1) {
-            Seq()
-         } else {
-            divergentSuffix(otherLastPowBlocks.tail, newSuffix)
-         }
-      }
+      val compareSize = syncInfo.lastBlocks.zip(other.lastBlocks).count(el => el._1.deep != el._2.deep)
+      if (compareSize == 0)
+         HistoryComparisonResult.Equal
+      else HistoryComparisonResult.Younger
    }
 
    private def lastBlocks(count: Int, startBlock: PowBlock): Seq[PowBlock] = if (isEmpty) {
