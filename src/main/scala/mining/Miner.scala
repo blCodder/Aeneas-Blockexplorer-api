@@ -82,15 +82,17 @@ class Miner(viewHolderRef: ActorRef,
 
                   while (status.nonCancelled && foundBlock.isEmpty) {
                      foundBlock = powIteration(parentId, brothers, difficulty, settings, pubkey, settings.blockGenDelay, storage)
+                     log.info(s"New block status : ${if (foundBlock.isDefined) "mined" else "in process"} at $attemps iteration")
                      attemps = attemps + 1
                      if (attemps % 100 == 99) {
                         log.debug(s"100 hashes tried, difficulty is $difficulty")
                      }
                   }
                   p.success(foundBlock)
+                  log.info(s"New block : ${foundBlock.get.encodedId}")
                }
             })
-
+            log.info(s"New block precomplete time")
             p.future.onComplete { toBlock =>
                toBlock.getOrElse(None).foreach { block =>
                   log.debug(s"Locally generated PoW block: $block with difficulty $difficulty")

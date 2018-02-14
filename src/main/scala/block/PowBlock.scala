@@ -56,7 +56,6 @@ object PowBlockHeader {
    def parse(bytes: Array[Byte]): Try[PowBlockHeader] = Try {
       require(bytes.length == PowHeaderSize)
       val parentId = ModifierId @@ bytes.slice(0, 32)
-      val prevPosId = ModifierId @@ bytes.slice(32, 64)
       val timestamp = Longs.fromByteArray(bytes.slice(32, 40))
       val nonce = Longs.fromByteArray(bytes.slice(40, 48))
       val brothersCount = Ints.fromByteArray(bytes.slice(48, 52))

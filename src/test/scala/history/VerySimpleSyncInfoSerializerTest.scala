@@ -6,8 +6,8 @@ import scorex.core.transaction.state.PrivateKey25519Companion
 import settings.SimpleSettings
 
 /**
-  * @author luger. Created on 06.02.18.
-  * @version ${VERSION}
+  * @author luger.
+  *         Created on 06.02.18.
   */
 class VerySimpleSyncInfoSerializerTest extends org.scalatest.FunSuite {
   test ("From Air SyncInfo Serialize") {
@@ -63,17 +63,4 @@ class VerySimpleSyncInfoSerializerTest extends org.scalatest.FunSuite {
     assert(simpleSyncInfo.lastBlocks.lengthCompare(preEncoded.get.lastBlocks.size) == 0)
     encoded.lastBlocks.zip(simpleSyncInfo.lastBlocks).foreach(el => assert(el._1.deep == el._2.deep))
   }
-
-//
-// test ("From History SyncInfo Serialize") {
-//    val config = "/Users/flystyle/Documents/Work/Scorex_Aeneas/Scorex/simpleblockchain/src/main/resources/settings.conf"
-//    val settings = SimpleSettings.read(Some(config))
-//    val history = SimpleHistory.readOrGenerate(settings.scorexSettings, settings.miningSettings)
-//    val _syncInfo = history.syncInfo
-//
-//    val decoded = VerySimpleSyncInfoSerializer.toBytes(_syncInfo)
-//    val preEncoded = VerySimpleSyncInfoSerializer.parseBytes(decoded)
-//    assert(preEncoded.isSuccess)
-//    assert(_syncInfo.equals(preEncoded.get))
-//  }
 }
