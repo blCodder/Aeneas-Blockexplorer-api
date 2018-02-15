@@ -18,15 +18,23 @@ class SimpleLocalInterface (override val viewHolderRef: ActorRef,
 
    private var block = false
 
-   override protected def onSuccessfulTransaction(tx: SimpleBoxTransaction): Unit = ???
+   override protected def onSuccessfulTransaction(tx: SimpleBoxTransaction): Unit = {}
 
-   override protected def onFailedTransaction(tx: SimpleBoxTransaction): Unit = ???
+   override protected def onFailedTransaction(tx: SimpleBoxTransaction): Unit = {}
 
-   override protected def onStartingPersistentModifierApplication(pmod: AeneasBlock): Unit = ???
+   override protected def onStartingPersistentModifierApplication(pmod: AeneasBlock): Unit = {}
 
-   override protected def onSyntacticallySuccessfulModification(mod: AeneasBlock): Unit = ???
+   override protected def onSyntacticallySuccessfulModification(mod: AeneasBlock): Unit = {
+      if (!block) {
+         mod match {
+            case wb: PowBlock =>
+               powMinerRef ! MineBlock
+            case _ =>
+         }
+      }
+   }
 
-   override protected def onSyntacticallyFailedModification(mod: AeneasBlock): Unit = ???
+   override protected def onSyntacticallyFailedModification(mod: AeneasBlock): Unit = {}
 
    override protected def onSemanticallySuccessfulModification(mod: AeneasBlock): Unit = {
       if (!block) {
@@ -38,9 +46,9 @@ class SimpleLocalInterface (override val viewHolderRef: ActorRef,
       }
    }
 
-   override protected def onSemanticallyFailedModification(mod: AeneasBlock): Unit = ???
+   override protected def onSemanticallyFailedModification(mod: AeneasBlock): Unit = {}
 
-   override protected def onNewSurface(newSurface: Seq[ModifierId]): Unit = ???
+   override protected def onNewSurface(newSurface: Seq[ModifierId]): Unit = {}
 
    override protected def onRollbackFailed(): Unit = {
       log.error("Too deep rollback occurred!")

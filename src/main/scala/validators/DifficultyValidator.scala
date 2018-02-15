@@ -1,6 +1,6 @@
 package validators
 
-import block.AeneasBlock
+import block.{AeneasBlock, PowBlock}
 import history.storage.SimpleHistoryStorage
 import scorex.core.block.BlockValidator
 import scorex.core.utils.ScorexLogging
@@ -18,7 +18,10 @@ class DifficultyValidator(settings: SimpleMiningSettings, storage: SimpleHistory
 				extends BlockValidator[AeneasBlock] with ScorexLogging {
 
    override def validate(block: AeneasBlock): Try[Unit] = Try {
-      require(DifficultyValidator.correctWork(block, settings, storage),
+      require(block match {
+         case b: PowBlock =>
+            b.correctWork(storage.getPoWDifficulty(None), settings)
+      },
       s"Work done is incorrect for block ${Base58.encode(block.id)} " +
       s"and difficulty ${storage.getPoWDifficulty(Some(block.parentId))}")
    }

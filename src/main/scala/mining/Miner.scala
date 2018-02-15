@@ -1,10 +1,11 @@
 package mining
 
 import akka.actor.{Actor, ActorRef}
-import block.{PowBlock, PowBlockCompanion, PowBlockHeader}
+import block.{AeneasBlock, PowBlock, PowBlockCompanion, PowBlockHeader}
 import commons.SimpleBoxTransactionMemPool
 import history.SimpleHistory
 import history.storage.SimpleHistoryStorage
+import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder.{CurrentView, GetDataFromCurrentView}
 import scorex.core.block.Block.BlockId
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
@@ -92,10 +93,10 @@ class Miner(viewHolderRef: ActorRef,
                   log.info(s"New block : ${foundBlock.get.encodedId}")
                }
             })
-            log.info(s"New block precomplete time")
             p.future.onComplete { toBlock =>
+               log.info(s"New block precomplete time")
                toBlock.getOrElse(None).foreach { block =>
-                  log.debug(s"Locally generated PoW block: $block with difficulty $difficulty")
+                  log.info(s"Locally generated PoW block: $block with difficulty $difficulty")
                   self ! block
                }
             }
@@ -104,6 +105,7 @@ class Miner(viewHolderRef: ActorRef,
 
       case b: PowBlock =>
          cancellableOpt.foreach(_.cancel())
+         viewHolderRef ! LocallyGeneratedModifier[AeneasBlock](b)
 
       case StopMining =>
          mining = false
@@ -113,7 +115,7 @@ class Miner(viewHolderRef: ActorRef,
    }
 }
 
-object Miner extends App {
+object Miner extends App with ScorexLogging {
 
    case object StartMining
 
@@ -131,7 +133,8 @@ object Miner extends App {
                     blockGenerationDelay: FiniteDuration,
                     storage : SimpleHistoryStorage
                    ): Option[PowBlock] = {
-      val nonce = Random.nextLong()
+      val rand = Random.nextLong()
+      val nonce = if (rand > 0) rand else rand * -1
 
       val ts = System.currentTimeMillis()
 
@@ -166,6 +169,7 @@ object Miner extends App {
             } else {
                view.vault.generateNewSecret().publicKeys.head
             }
+            log.info(MiningInfo(difficulty, bestBlock, pubkey).toString)
             MiningInfo(difficulty, bestBlock, pubkey)
       }
       GetDataFromCurrentView[SimpleHistory,
