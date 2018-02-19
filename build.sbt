@@ -24,9 +24,12 @@ val testDependencies = Seq(
 )
 
 val loggingDependencies = Seq(
-  "tv.cntt" %% "slf4s-api" % "1.7.25",
+  //"tv.cntt" %% "slf4s-api" % "1.7.25",
   /*Fork of https://github.com/mattroberts297/slf4s to add support for Scala 2.12.*/
-  "ch.qos.logback" % "logback-classic" % "1.2.3"
+  //"com.typesafe.scala-logging" %% "scala-logging" % "3.+",
+  "org.slf4j" % "slf4j-api" % "1.8.0-beta1",
+  "ch.qos.logback" % "logback-core" % "1.3.0-alpha2",
+  "ch.qos.logback" % "logback-classic" % "1.3.0-alpha2"
 )
 
 val scorexDependencies = Seq(

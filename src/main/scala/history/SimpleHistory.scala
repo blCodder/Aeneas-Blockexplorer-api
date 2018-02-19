@@ -34,6 +34,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      * @return append modifier to history
      */
    override def append(block: AeneasBlock): Try[(SimpleHistory, History.ProgressInfo[AeneasBlock])] = Try {
+      log.debug (s"debug logs check point")
       log.info(s"Trying to append block ${Base58.encode(block.id)} to history")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>

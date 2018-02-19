@@ -63,7 +63,6 @@ class Miner(viewHolderRef: ActorRef,
          }
 
       case pmi: MiningInfo =>
-
          if (!cancellableOpt.forall(_.status.isCancelled)) {
             log.warn("Trying to run miner when the old one is still running")
          } else {
