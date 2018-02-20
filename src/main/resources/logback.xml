@@ -33,7 +33,7 @@
             <level>DEBUG</level>
         </filter>
         <encoder>
-            <pattern>[%thread] >> [%level] >> %logger{36} >> [%d{yy-MM-dd HH:mm:ss}] %c{1}: %m%n</pattern>
+            <pattern>[%level] >> %logger{36} >> %c{1}: %m%n</pattern>
         </encoder>
     </appender>
 
