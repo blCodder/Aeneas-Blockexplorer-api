@@ -58,7 +58,7 @@ class SimpleBlockChain extends Application with ScorexLogging {
    override val swaggerConfig: String = ""
 }
 
-object SimpleBlockChain {
+object SimpleBlockChain extends ScorexLogging {
    def main(args: Array[String]): Unit = {
       new SimpleBlockChain().run()
    }
