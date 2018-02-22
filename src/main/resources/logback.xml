@@ -33,14 +33,14 @@
             <level>DEBUG</level>
         </filter>
         <encoder>
-            <pattern>[%thread] >> [%level] >> %logger{36} >> [%d{yy-MM-dd HH:mm:ss}] %c{1}: %m%n</pattern>
+            <pattern>[%level] >> %c{1}: %m%n</pattern>
         </encoder>
     </appender>
 
     <root level="DEBUG">
         <appender-ref ref="CONSOLE"/>
-        <!--<appender-ref ref="ERRFILE"/>-->
-        <!--<appender-ref ref="LOGFILE"/>-->
+        <appender-ref ref="ERRFILE"/>
+        <appender-ref ref="LOGFILE"/>
     </root>
 
 </configuration>

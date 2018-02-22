@@ -29,6 +29,7 @@ class VerySimpleNodeViewHolder (settings : ScorexSettings, minerSettings: Simple
      * (e.g. if it is a first launch of a node) None is to be returned
      */
    override def restoreState(): Option[(HIS, MS, VL, MP)] = {
+      log.debug(s"AeneasWallet.exists:${AeneasWallet.exists(settings)}")
       if (AeneasWallet.exists(settings)) {
          Some((
            SimpleHistory.readOrGenerate(settings, minerSettings),
@@ -42,7 +43,7 @@ class VerySimpleNodeViewHolder (settings : ScorexSettings, minerSettings: Simple
      * Hard-coded initial view all the honest nodes in a network are making progress from.
      */
    override protected def genesisState: (HIS, MS, VL, MP) = {
-      val coinLimit = 100
+      log.debug("start genesisState")
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
       val genesisBlock = new PowBlock(minerSettings.GenesisParentId,
          System.currentTimeMillis(),
@@ -57,7 +58,7 @@ class VerySimpleNodeViewHolder (settings : ScorexSettings, minerSettings: Simple
       history = history.append(genesisBlock).get._1
 
       log.debug(s"NodeViewHolder : Genesis Block : ${genesisBlock.json.toString()}")
-      log.info(s"NodeViewHolder : History height is ${history.storage.height}")
+      log.info(s"NodeViewHolder : History height is ${history.storage.height}, ${history.height}")
 
       val mininalState = SimpleMininalState.genesisState(settings, Seq(genesisBlock))
       val wallet = AeneasWallet.genesisWallet(settings, Seq(genesisBlock))

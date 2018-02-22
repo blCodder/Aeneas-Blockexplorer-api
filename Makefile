@@ -10,4 +10,4 @@ run: build
 	NETADDR=$(or $(NETADDR), "127.0.0.1:9089") \
 	SECONDPEER=$(or $(SECONDPEER), "127.0.0.1:9088") \
 	WALLETDIR=$(or $(WALLETDIR), ".blockchain/wallet") \
-	java -jar target/scala*/Aeneas-assembly-*.jar -Dlogback.configurationFile=logback.xml
+	java -jar target/scala*/Aeneas-assembly-*.jar -Dlogback.configurationFile=src/main/resources/logback.xml
