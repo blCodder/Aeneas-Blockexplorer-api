@@ -2,7 +2,7 @@ package history
 
 import java.io.File
 
-import block.PowBlock
+import block.{AeneasBlock, PowBlock}
 import history.storage.SimpleHistoryStorage
 import io.iohk.iodb.LSMStore
 import org.scalatest.{FunSuite, Matchers}
