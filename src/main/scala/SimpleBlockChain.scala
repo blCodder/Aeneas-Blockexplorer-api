@@ -17,7 +17,7 @@ import settings.{SimpleLocalInterface, SimpleSettings}
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain extends Application with ScorexLogging {
+class SimpleBlockChain(loadSettings: LoadSettings) extends Application with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
@@ -26,7 +26,7 @@ class SimpleBlockChain extends Application with ScorexLogging {
    type HIS = SimpleHistory
    type MPOOL = SimpleBoxTransactionMemPool
 
-   private val simpleSettings : SimpleSettings = SimpleSettings.read()
+   private val simpleSettings : SimpleSettings = loadSettings.simpleSettings
 
    // Note : NEVER NEVER forget to mark implicit as LAZY!
    override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
@@ -58,8 +58,16 @@ class SimpleBlockChain extends Application with ScorexLogging {
    override val swaggerConfig: String = ""
 }
 
-object SimpleBlockChain extends ScorexLogging {
+object SimpleBlockChain {
    def main(args: Array[String]): Unit = {
-      new SimpleBlockChain().run()
+      val loadSettings = LoadSettings()
+      new SimpleBlockChain(loadSettings).run()
    }
+}
+
+case class LoadSettings(){
+  val simpleSettings : SimpleSettings = SimpleSettings.read()
+  // set logging path:
+  sys.props += ("log.dir"->simpleSettings.scorexSettings.logDir.getAbsolutePath)
+
 }

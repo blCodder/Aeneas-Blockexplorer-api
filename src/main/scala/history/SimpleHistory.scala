@@ -46,7 +46,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
          if (storage.isGenesis(block)) {
 
             storage.update(block, None, isBest = true)
-            log.info(s"History.append postappend length : ${storage.height}; ${storage.bestPowId}")
+            log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
             storage.heightOf(block.parentId) match {
@@ -54,12 +54,13 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
                   log.debug(s"parentHeight:$parentHeight, storage.height:${storage.height}, storage.parentHeight:${storage.parentHeight(b = block)}")
                   val best = storage.height == storage.parentHeight(b = block)
                   val mod : ProgressInfo[AeneasBlock] = {
-                     if (best && storage.isGenesis(block)) {
+                     if (best && block.id.deep == storage.bestPowId.deep) {
                         log.info(s"New block incoming : ${Base58.encode(block.id)}")
                         ProgressInfo(None, Seq(), Some(block), Seq())
                      } else ProgressInfo(None, Seq(), None, Seq())
                   }
                   storage.update(block, None, best)
+                  log.debug(s"History.append postappend length : ${storage.height}")
                   mod
                case None =>
                   log.info(s"No parent block ${Base58.encode(block.parentId)}")
@@ -117,11 +118,15 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 
       def idInList(id: ModifierId): Boolean = from.exists(f => f._2.deep == id.deep)
 
+      log.info(s"History.continuationIds 'from' size : ${from.size}.")
+
       //Look without limit for case difference between nodes is bigger then size
       chainBack(storage.bestBlock, inList) match {
-         case Some(chain) if chain.exists(id => idInList(id._2)) => Some(chain.take(size))
+         case Some(chain) if chain.exists(id => idInList(id._2)) =>
+            log.info(s"Other chain size is ${chain.size}, applied")
+            Some(chain.take(size))
          case Some(chain) =>
-         log.warn("Found chain without ids form remote")
+            log.warn(s"Found chain without ids form remote, it's size is : ${chain.size}")
             None
          case _ => None
       }
@@ -141,11 +146,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 
    def parentBlock(m: AeneasBlock): Option[AeneasBlock] = modifierById(m.parentId)
 
-   /**
-     * Go back though chain and get block ids until condition until
-     * None if parent block is not in chain
-     */
-   @tailrec
+  @tailrec
    private def chainBack(m: AeneasBlock,
                          until: AeneasBlock => Boolean,
                          limit: Int = Int.MaxValue,
@@ -182,12 +183,47 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       if (other.lastBlocks.isEmpty)
          HistoryComparisonResult.Nonsense
 
-      val compareSize = syncInfo.lastBlocks.zip(other.lastBlocks).count(el => el._1.deep != el._2.deep)
+      log.debug("History : Comparing begins!")
+
+      val compareSize = syncInfo.lastBlocks.reverse.zipAll(other.lastBlocks.reverse, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
       if (compareSize == 0)
          HistoryComparisonResult.Equal
-      else HistoryComparisonResult.Younger
+      else findComparisonResultInSyncInfo(syncInfo, other)
    }
 
+   /**
+     * Method tries to define chain's age comparison.
+     *
+     * @param currentSyncInfo active head of current node's blockchain.
+     * @param otherSyncInfo   active head of other node's blockchain.
+     * @return Older status, if current chain consists first block of other chain and it isn't head of other chain.
+     * Younger, if other chain consists first block of current chain and it isn't head of current chain.
+     */
+   private def findComparisonResultInSyncInfo(currentSyncInfo : VerySimpleSyncInfo, otherSyncInfo : VerySimpleSyncInfo) : HistoryComparisonResult.Value = {
+      val currentBlocks = currentSyncInfo.lastBlocks.reverse
+      val otherBlocks = otherSyncInfo.lastBlocks.reverse
+
+      val firstCurrentBlock = currentBlocks.head
+      val firstOtherBlock = otherBlocks.head
+
+      if (firstCurrentBlock.deep != firstOtherBlock.deep) { // this condition is unreachable, but check it.
+         if (otherBlocks.tail.exists(el => el.deep == firstCurrentBlock.deep))
+            HistoryComparisonResult.Older
+         else if (currentBlocks.tail.exists(el => el.deep == firstOtherBlock.deep))
+            HistoryComparisonResult.Younger
+
+         // TODO: get higher blockchain height and send.
+         else HistoryComparisonResult.Nonsense
+      }
+      else HistoryComparisonResult.Nonsense
+   }
+
+   /**
+     * Take `count` blocks from history.
+     * @param count
+     * @param startBlock specialize first block.
+     * @return `count` blocks after `startBlock` in increasing order by age (the oldest block is head of Seq).
+     */
    private def lastBlocks(count: Int, startBlock: PowBlock): Seq[PowBlock] = if (isEmpty) {
       Seq()
    } else {

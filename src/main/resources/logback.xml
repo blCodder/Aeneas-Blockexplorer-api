@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true" scanPeriod="60 seconds">
     <appender name="ERRFILE" class="ch.qos.logback.core.FileAppender">
-        <file>aeneas-errors.log</file>
+        <file>${log.dir}/aeneas-errors.log</file>
         <append>true</append>
         <encoder>
             <pattern>%date{MM/dd HH:mm:ss} %-5level[%.15thread] %logger{1} %msg%n</pattern>
@@ -12,14 +12,14 @@
     </appender>
 
     <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>aeneas.log</file>
+        <file>${log.dir}/aeneas.log</file>
         <append>true</append>
         <encoder>
             <pattern>%date{MM/dd HH:mm:ss} %-5level[%.15thread] %logger{1} %msg%n</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <!-- rollover daily -->
-            <fileNamePattern>aeneas.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${log.dir}/aeneas.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <!-- each file should be at most 100MB, keep 60 days worth of history, but at most 20GB -->
             <maxFileSize>100MB</maxFileSize>
             <maxHistory>60</maxHistory>

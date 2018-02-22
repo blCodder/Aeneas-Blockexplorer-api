@@ -33,7 +33,7 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
    }
 
    def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) {
-      log.info(s"History.update : Write new best=$isBest block ${b.encodedId}")
+      log.debug(s"History.update : Write new best=$isBest block ${b.encodedId}")
       val typeByte = b match {
          case _: PowBlock =>
             PowBlock.ModifierTypeId
@@ -59,7 +59,7 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
          blockDiff ++ blockH ++ bestBlockSeq ++ Seq(ByteArrayWrapper(b.id) -> ByteArrayWrapper(typeByte +: b.bytes)))
 
       val check = storage.lastVersionID.getOrElse(-1L)
-      log.info(s"History.storage bestId : ${bestBlock.encodedId}")
+      log.debug(s"History.storage bestId : ${bestBlock.encodedId}")
    }
 
    def getPoWDifficulty(idOpt: Option[ModifierId]): BigInt = {
