@@ -116,11 +116,15 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 
       def idInList(id: ModifierId): Boolean = from.exists(f => f._2.deep == id.deep)
 
+      log.info(s"History.continuationIds 'from' size : ${from.size}.")
+
       //Look without limit for case difference between nodes is bigger then size
       chainBack(storage.bestBlock, inList) match {
-         case Some(chain) if chain.exists(id => idInList(id._2)) => Some(chain.take(size))
+         case Some(chain) if chain.exists(id => idInList(id._2)) =>
+            log.info(s"Other chain size is ${chain.size}, applied")
+            Some(chain.take(size))
          case Some(chain) =>
-         log.warn("Found chain without ids form remote")
+            log.warn(s"Found chain without ids form remote, it's size is : ${chain.size}")
             None
          case _ => None
       }
@@ -140,11 +144,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 
    def parentBlock(m: AeneasBlock): Option[AeneasBlock] = modifierById(m.parentId)
 
-   /**
-     * Go back though chain and get block ids until condition until
-     * None if parent block is not in chain
-     */
-   @tailrec
+  @tailrec
    private def chainBack(m: AeneasBlock,
                          until: AeneasBlock => Boolean,
                          limit: Int = Int.MaxValue,
@@ -181,6 +181,8 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       if (other.lastBlocks.isEmpty)
          HistoryComparisonResult.Nonsense
 
+      log.debug("History : Comparing begins!")
+
       val compareSize = syncInfo.lastBlocks.reverse.zipAll(other.lastBlocks.reverse, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
       if (compareSize == 0)
          HistoryComparisonResult.Equal
@@ -208,7 +210,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
          else if (currentBlocks.tail.exists(el => el.deep == firstOtherBlock.deep))
             HistoryComparisonResult.Younger
 
-         // TODO: get height and first block of older chain and compare with current node.
+         // TODO: get higher blockchain height and send.
          else HistoryComparisonResult.Nonsense
       }
       else HistoryComparisonResult.Nonsense
