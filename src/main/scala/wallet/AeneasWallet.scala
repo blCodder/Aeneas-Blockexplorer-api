@@ -119,7 +119,7 @@ object AeneasWallet {
    def walletFile(settings: ScorexSettings): File = {
       if (!settings.wallet.walletDir.exists()) settings.wallet.walletDir.mkdirs()
 
-      new File(s"${settings.wallet.walletDir.getAbsolutePath}/wallet.dat") //TODO WTF?????
+      new File(s"${settings.wallet.walletDir.getAbsolutePath}") //TODO WTF?????
 
    }
 
@@ -128,7 +128,6 @@ object AeneasWallet {
    def readOrGenerate(settings: ScorexSettings, seed: ByteStr): AeneasWallet = {
       val wFile = settings.wallet.walletDir
       if (wFile.exists) settings.wallet.walletDir.mkdirs
-      println(s"wFile path:${wFile.getAbsolutePath}")
       val boxesStorage = new LSMStore(wFile, maxJournalEntryCount = 10000)
       sys.addShutdownHook{
         boxesStorage.close()

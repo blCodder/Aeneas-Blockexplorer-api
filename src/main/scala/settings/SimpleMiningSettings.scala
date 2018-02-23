@@ -30,7 +30,7 @@ case class SimpleMiningSettings(offlineGen : Boolean,
 
 case class SimpleSettings(scorexSettings: ScorexSettings, miningSettings: SimpleMiningSettings)
 
-object SimpleSettings extends ScorexLogging with SettingsReaders {
+object SimpleSettings extends SettingsReaders {
    def read(): SimpleSettings = {
       val config = ConfigFactory.load()
       if (!config.hasPath("scorex")) {
@@ -44,7 +44,6 @@ object SimpleSettings extends ScorexLogging with SettingsReaders {
 
    private def fromConfig(config: Config): SimpleSettings = {
       val miningSettings = config.as[SimpleMiningSettings]("scorex.miner")
-      log.info(s"Mining settings : ${miningSettings.toString}")
       val scorexSettings = config.as[ScorexSettings]("scorex")
 
       SimpleSettings(scorexSettings, miningSettings)

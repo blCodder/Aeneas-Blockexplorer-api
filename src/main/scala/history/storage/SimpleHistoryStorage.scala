@@ -8,10 +8,11 @@ import scorex.core.ModifierId
 import scorex.core.block.Block
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
+import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Sha256
 import settings.SimpleMiningSettings
 
-import scala.util.Failure
+import scala.util.{Failure, Success}
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -23,7 +24,7 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
    def bestPowId: ModifierId = storage.get(bestBlockIdKey)
                                       .map(d => ModifierId @@ d.data)
                                       .getOrElse(settings.GenesisParentId)
-
+   log.debug(s"bestPowId: ${Base58.encode(bestPowId)}")
    def height : Long = heightOf(bestPowId).getOrElse(0L)
 
    def bestBlock: PowBlock = {
@@ -63,7 +64,7 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
 
    def getPoWDifficulty(idOpt: Option[ModifierId]): BigInt = {
       idOpt match {
-         case Some(id) if id sameElements settings.GenesisParentId =>
+         case Some(id) if id.sameElements (settings.GenesisParentId) =>
             settings.initialDifficulty
          case Some(id) =>
             BigInt(storage.get(blockDiffKey(id)).get.data)
@@ -96,9 +97,9 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
    }
 
    def isGenesis(b: AeneasBlock): Boolean = b match {
-      case block: PowBlock => block.parentId sameElements settings.GenesisParentId
-      case _ => false
-   }
+         case block: PowBlock => block.parentId.sameElements (settings.GenesisParentId)
+         case _ => false
+      }
 
    private def blockDiffKey(blockId: Array[Byte]): ByteArrayWrapper =
       ByteArrayWrapper(Sha256(s"difficulties".getBytes ++ blockId))

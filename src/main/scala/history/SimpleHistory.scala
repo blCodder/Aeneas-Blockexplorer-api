@@ -35,7 +35,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      */
    override def append(block: AeneasBlock): Try[(SimpleHistory, History.ProgressInfo[AeneasBlock])] = Try {
       log.debug (s"debug logs check point")
-      log.info(s"Trying to append block ${Base58.encode(block.id)} to history")
+      log.info(s"Trying to append block ${Base58.encode(block.id)} to history, $block")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
             log.warn(s"Failed to validate block ${Base58.encode(block.id)}")
@@ -44,12 +44,14 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       }
       val progressInfo: ProgressInfo[AeneasBlock] =
          if (storage.isGenesis(block)) {
+
             storage.update(block, None, isBest = true)
-            log.debug(s"History.append postappend length : ${storage.height}")
+            log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
             storage.heightOf(block.parentId) match {
                case Some(parentHeight) =>
+                  log.debug(s"parentHeight:$parentHeight, storage.height:${storage.height}, storage.parentHeight:${storage.parentHeight(b = block)}")
                   val best = storage.height == storage.parentHeight(b = block)
                   val mod : ProgressInfo[AeneasBlock] = {
                      if (best && block.id.deep == storage.bestPowId.deep) {
