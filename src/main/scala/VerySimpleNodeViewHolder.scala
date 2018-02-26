@@ -1,3 +1,5 @@
+import java.io.File
+
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool, SimpleBoxTransactionSerializer}
 import history.{SimpleHistory, VerySimpleSyncInfo}
@@ -30,7 +32,7 @@ class VerySimpleNodeViewHolder (settings : ScorexSettings, minerSettings: Simple
      */
    override def restoreState(): Option[(HIS, MS, VL, MP)] = {
       log.debug(s"AeneasWallet.exists:${AeneasWallet.exists(settings)}")
-      if (AeneasWallet.exists(settings)) {
+      if (AeneasWallet.exists(settings) && AeneasWallet.nonEmpty(settings)) {
          Some((
            SimpleHistory.readOrGenerate(settings, minerSettings),
            SimpleMininalState.readOrGenerate(settings),

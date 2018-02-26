@@ -125,6 +125,8 @@ object AeneasWallet {
 
    def exists(settings: ScorexSettings): Boolean = walletFile(settings).exists()
 
+   def nonEmpty(settings: ScorexSettings): Boolean = walletFile(settings).listFiles().exists(_.isFile)
+
    def readOrGenerate(settings: ScorexSettings, seed: ByteStr): AeneasWallet = {
       val wFile = settings.wallet.walletDir
       if (wFile.exists) settings.wallet.walletDir.mkdirs
