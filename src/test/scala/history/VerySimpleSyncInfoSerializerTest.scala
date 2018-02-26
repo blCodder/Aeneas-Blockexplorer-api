@@ -1,6 +1,7 @@
 package history
 
 import block.PowBlock
+import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
 import settings.SimpleSettings
@@ -9,7 +10,7 @@ import settings.SimpleSettings
   * @author luger.
   *         Created on 06.02.18.
   */
-class VerySimpleSyncInfoSerializerTest extends org.scalatest.FunSuite {
+class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
   test ("From Air SyncInfo Serialize") {
     val settings = SimpleSettings.read()
     val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -54,13 +55,17 @@ class VerySimpleSyncInfoSerializerTest extends org.scalatest.FunSuite {
       Seq()
     )
 
-    val simpleSyncInfo : VerySimpleSyncInfo = VerySimpleSyncInfo(Seq(block1, block2, block3, block4).map(_.id))
+    val blockSeq = Seq(block1, block2, block3, block4)
+
+    val simpleSyncInfo : VerySimpleSyncInfo = VerySimpleSyncInfo(blockSeq.size, blockSeq.map(_.id), block1.id)
 
     val decoded = VerySimpleSyncInfoSerializer.toBytes(simpleSyncInfo)
     val preEncoded = VerySimpleSyncInfoSerializer.parseBytes(decoded)
     assert(preEncoded.isSuccess)
     val encoded = preEncoded.get
-    assert(simpleSyncInfo.lastBlocks.lengthCompare(preEncoded.get.lastBlocks.size) == 0)
+    simpleSyncInfo.lastBlocks.lengthCompare(preEncoded.get.lastBlocks.size) shouldBe 0
+    assert(simpleSyncInfo.genesisBlock.deep equals preEncoded.get.genesisBlock.deep)
+    assert(simpleSyncInfo.blockchainHeight == preEncoded.get.blockchainHeight)
     encoded.lastBlocks.zip(simpleSyncInfo.lastBlocks).foreach(el => assert(el._1.deep == el._2.deep))
   }
 }

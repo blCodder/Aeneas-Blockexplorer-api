@@ -74,11 +74,12 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       history = history.append(block4).get._1
       println(history.height)
 
-      val simpleSyncInfo : VerySimpleSyncInfo = VerySimpleSyncInfo(Seq(block1, block2, block3, block4).map(_.id))
+      val simpleSyncInfo : VerySimpleSyncInfo =
+         VerySimpleSyncInfo(4L, Seq(block1, block2, block3, block4).map(_.id), block1.id)
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Equal
-
+      simpleSyncInfo.blockchainHeight shouldBe history.height
    }
 
    test("SyncInfo : multiple elements compare test with older chain") {
@@ -147,7 +148,8 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       history = history.append(block5).get._1
       println(history.height)
 
-      val simpleSyncInfo : VerySimpleSyncInfo = VerySimpleSyncInfo(Seq(block1, block2, block3, block4).map(_.id))
+      val simpleSyncInfo : VerySimpleSyncInfo =
+         VerySimpleSyncInfo(4L, Seq(block1, block2, block3, block4).map(_.id), block1.id)
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Younger
@@ -216,13 +218,14 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       history = history.append(block2).get._1
       history = history.append(block3).get._1
 
-      val simpleSyncInfo : VerySimpleSyncInfo = VerySimpleSyncInfo(Seq(block1, block2, block3, block4).map(_.id))
+      val simpleSyncInfo : VerySimpleSyncInfo =
+         VerySimpleSyncInfo(4L, Seq(block1, block2, block3, block4).map(_.id), block1.id)
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Older
    }
 
-   test("SyncInfo : multiple elements compare test with nonsense") {
+   test("SyncInfo : multiple elements compare with different chain") {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
@@ -294,9 +297,10 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       history = history.append(block2).get._1
       history = history.append(block3).get._1
 
-      val simpleSyncInfo : VerySimpleSyncInfo = VerySimpleSyncInfo(Seq(otherBlock1, otherBlock2, otherBlock3).map(_.id))
+      val simpleSyncInfo : VerySimpleSyncInfo =
+         VerySimpleSyncInfo(4L, Seq(otherBlock1, otherBlock2, otherBlock3).map(_.id), otherBlock1.id)
 
       val res = history.compare(simpleSyncInfo)
-      res shouldBe HistoryComparisonResult.Nonsense
+      res shouldBe HistoryComparisonResult.Younger
    }
 }

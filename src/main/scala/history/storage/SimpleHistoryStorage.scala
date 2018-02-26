@@ -32,6 +32,10 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
       modifierById(bestPowId).get.asInstanceOf[PowBlock]
    }
 
+//   def getGenesis() : AeneasBlock = {
+//      val a = storage.get()
+//   }
+
    def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) {
       log.debug(s"History.update : Write new best=$isBest block ${b.encodedId}")
       val typeByte = b match {
