@@ -5,6 +5,7 @@ import java.io.File
 import block.{AeneasBlock, PowBlock}
 import history.storage.SimpleHistoryStorage
 import io.iohk.iodb.LSMStore
+import org.apache.commons.io.FileUtils
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.consensus.History.HistoryComparisonResult
@@ -20,6 +21,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
@@ -86,6 +88,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
@@ -159,6 +162,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
@@ -229,6 +233,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)

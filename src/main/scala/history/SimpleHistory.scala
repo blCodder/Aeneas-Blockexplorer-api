@@ -30,8 +30,14 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 
    override type NVCT = SimpleHistory
    val height = storage.height
-   var genesisBlockId = ModifierId @@ Array.emptyByteArray
 
+   def genesis() : ModifierId = {
+      storage.getGenesis() match {
+         case Some(wrapper) =>
+            ModifierId @@ wrapper.data
+         case _ => ModifierId @@ Array.emptyByteArray
+      }
+   }
 
    /**
      * @return append modifier to history
@@ -46,7 +52,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       }
       val progressInfo: ProgressInfo[AeneasBlock] =
          if (storage.isGenesis(block)) {
-            genesisBlockId = block.id
+            storage.storeGenesis(block)
             storage.update(block, None, isBest = true)
             log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
             ProgressInfo(None, Seq(), Some(block), Seq())
@@ -173,7 +179,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      * @return
      */
    override def syncInfo: VerySimpleSyncInfo =
-      VerySimpleSyncInfo(storage.height, lastBlocks(VerySimpleSyncInfo.lastBlocksCount, storage.bestBlock).map(_.id), genesisBlockId)
+      VerySimpleSyncInfo(storage.height, lastBlocks(VerySimpleSyncInfo.lastBlocksCount, storage.bestBlock).map(_.id), genesis())
 
    /**
      * Whether another's node syncinfo shows that another node is ahead or behind ours

@@ -1,7 +1,7 @@
 package history.storage
 
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
-import com.google.common.primitives.Longs
+import com.google.common.primitives.{Ints, Longs}
 import commons.SimpleBoxTransaction
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.core.ModifierId
@@ -12,7 +12,7 @@ import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Sha256
 import settings.SimpleMiningSettings
 
-import scala.util.{Failure, Success}
+import scala.util.Failure
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -24,17 +24,35 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
    def bestPowId: ModifierId = storage.get(bestBlockIdKey)
                                       .map(d => ModifierId @@ d.data)
                                       .getOrElse(settings.GenesisParentId)
+
    log.debug(s"bestPowId: ${Base58.encode(bestPowId)}")
    def height : Long = heightOf(bestPowId).getOrElse(0L)
-
    def bestBlock: PowBlock = {
       require(height > 0, "History is empty")
       modifierById(bestPowId).get.asInstanceOf[PowBlock]
    }
 
-//   def getGenesis() : AeneasBlock = {
-//      val a = storage.get()
-//   }
+   /** Store genesis block to special cell for fast receiving.
+     *
+     * Note: magic constant array was used as a key,
+     * because we can't use evident string like "genesis"
+     * because of `32` bytes key size =(.
+     * @param b genesis block
+     */
+
+   def storeGenesis(b : AeneasBlock): Unit = {
+      val genesisKey = "genesisStoreKey"
+      storage.update(ByteArrayWrapper(genesisKey.getBytes("UTF-16")),
+                     Seq(),
+                     Seq(ByteArrayWrapper(genesisKey.getBytes("UTF-16")) -> ByteArrayWrapper(b.id)))
+   }
+
+   /** Receiving wrapped genesis block from key-value storage */
+
+   def getGenesis(): Option[ByteArrayWrapper] = {
+      val genesisKey = "genesisStoreKey"
+      storage.get(ByteArrayWrapper(genesisKey.getBytes("UTF-16")))
+   }
 
    def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) {
       log.debug(s"History.update : Write new best=$isBest block ${b.encodedId}")

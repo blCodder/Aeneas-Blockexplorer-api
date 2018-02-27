@@ -5,6 +5,7 @@ import java.io.File
 import block.{PowBlock, PowBlockCompanion}
 import history.storage.SimpleHistoryStorage
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
+import org.apache.commons.io.FileUtils
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
@@ -22,6 +23,7 @@ class HistoryTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
@@ -94,6 +96,7 @@ class HistoryTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
@@ -162,6 +165,7 @@ class HistoryTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
+      FileUtils.deleteDirectory(testFile)
       testFile.mkdirs()
       val store = new LSMStore(testFile, maxJournalEntryCount = 100)
       val storage = new SimpleHistoryStorage(store, settings.miningSettings)
@@ -201,8 +205,7 @@ class HistoryTest extends FunSuite with Matchers {
       history = history.append(block1).get._1
 
       val genesis = store.get(ByteArrayWrapper(settings.miningSettings.GenesisParentId))
-      println(ByteArrayWrapper(settings.miningSettings.GenesisParentId))
-      println(Base58.encode(settings.miningSettings.GenesisParentId))
+      val genesisId = history.genesis()
       store.getAll().foreach(a => {
          val (key, value) = a
          PowBlockCompanion.parseBytes(value.data) match {
@@ -210,5 +213,6 @@ class HistoryTest extends FunSuite with Matchers {
             case _ => println(s"FALL, HERO : ${Base58.encode(key.data)}; value = $value")
          }
       })
+      genesisId.deep shouldBe block1.id.deep
    }
 }
