@@ -1,7 +1,8 @@
 import akka.actor.{ActorRef, Props}
 import block.AeneasBlock
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
-import history.{SimpleHistory, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
+import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
+import history.SimpleHistory
 import mining.Miner
 import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
 import scorex.core.app.Application
@@ -31,11 +32,9 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    // Note : NEVER NEVER forget to mark implicit as LAZY!
    override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
-   log.debug(s"full settings: $simpleSettings")
    log.info(s"SimpleBlokchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new VerySimpleNodeViewHolder(settings, simpleSettings.miningSettings)))
-   log.info(s"SimpleBlokchain : NodeViewHolder Actor was initialized : ${nodeViewHolderRef.path}")
 
    override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 
@@ -44,8 +43,6 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
 
    override val localInterface: ActorRef =
    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
-
-   log.info(s"SimpleBlokchain : LocalInterface Actor started : ${localInterface.path}")
 
    override val nodeViewSynchronizer: ActorRef =
       actorSystem.actorOf(Props(
@@ -65,9 +62,8 @@ object SimpleBlockChain {
    }
 }
 
-case class LoadSettings(){
+case class LoadSettings() {
   val simpleSettings : SimpleSettings = SimpleSettings.read()
   // set logging path:
-  sys.props += ("log.dir"->simpleSettings.scorexSettings.logDir.getAbsolutePath)
-
+  sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
 }

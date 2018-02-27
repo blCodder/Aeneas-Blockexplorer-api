@@ -4,6 +4,7 @@ import java.io.File
 
 import block.{AeneasBlock, PowBlock}
 import history.storage.SimpleHistoryStorage
+import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import scorex.core.block.BlockValidator
 import scorex.core.consensus.History.{HistoryComparisonResult, ModifierIds, ProgressInfo}
@@ -30,11 +31,18 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
    override type NVCT = SimpleHistory
    val height = storage.height
 
+   def genesis() : ModifierId = {
+      storage.getGenesis() match {
+         case Some(wrapper) =>
+            ModifierId @@ wrapper.data
+         case _ => ModifierId @@ Array.emptyByteArray
+      }
+   }
+
    /**
      * @return append modifier to history
      */
    override def append(block: AeneasBlock): Try[(SimpleHistory, History.ProgressInfo[AeneasBlock])] = Try {
-      log.debug (s"debug logs check point")
       log.info(s"Trying to append block ${Base58.encode(block.id)} to history, $block")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
@@ -44,14 +52,13 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       }
       val progressInfo: ProgressInfo[AeneasBlock] =
          if (storage.isGenesis(block)) {
-
+            storage.storeGenesis(block)
             storage.update(block, None, isBest = true)
             log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
             storage.heightOf(block.parentId) match {
                case Some(parentHeight) =>
-                  log.debug(s"parentHeight:$parentHeight, storage.height:${storage.height}, storage.parentHeight:${storage.parentHeight(b = block)}")
                   val best = storage.height == storage.parentHeight(b = block)
                   val mod : ProgressInfo[AeneasBlock] = {
                      if (best && block.id.deep == storage.bestPowId.deep) {
@@ -126,7 +133,8 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
             log.info(s"Other chain size is ${chain.size}, applied")
             Some(chain.take(size))
          case Some(chain) =>
-            log.warn(s"Found chain without ids form remote, it's size is : ${chain.size}")
+            log.warn(s"Found chain without ids from remote, it's size is : ${chain.size}")
+            var done = false
             None
          case _ => None
       }
@@ -171,7 +179,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      * @return
      */
    override def syncInfo: VerySimpleSyncInfo =
-      VerySimpleSyncInfo(lastBlocks(VerySimpleSyncInfo.lastBlocksCount, storage.bestBlock).map(_.id))
+      VerySimpleSyncInfo(storage.height, lastBlocks(VerySimpleSyncInfo.lastBlocksCount, storage.bestBlock).map(_.id), genesis())
 
    /**
      * Whether another's node syncinfo shows that another node is ahead or behind ours
@@ -196,10 +204,13 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      *
      * @param currentSyncInfo active head of current node's blockchain.
      * @param otherSyncInfo   active head of other node's blockchain.
-     * @return Older status, if current chain consists first block of other chain and it isn't head of other chain.
-     * Younger, if other chain consists first block of current chain and it isn't head of current chain.
+     * @return Younger status, if current chain more developed.
+     * Older, if other chain is more developed.
      */
    private def findComparisonResultInSyncInfo(currentSyncInfo : VerySimpleSyncInfo, otherSyncInfo : VerySimpleSyncInfo) : HistoryComparisonResult.Value = {
+      if (otherSyncInfo.genesisBlock.deep != genesis().deep)
+         HistoryComparisonResult.Younger
+
       val currentBlocks = currentSyncInfo.lastBlocks.reverse
       val otherBlocks = otherSyncInfo.lastBlocks.reverse
 
@@ -212,7 +223,6 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
          else if (currentBlocks.tail.exists(el => el.deep == firstOtherBlock.deep))
             HistoryComparisonResult.Younger
 
-         // TODO: get higher blockchain height and send.
          else HistoryComparisonResult.Nonsense
       }
       else HistoryComparisonResult.Nonsense
