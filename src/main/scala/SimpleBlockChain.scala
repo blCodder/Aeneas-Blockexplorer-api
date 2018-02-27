@@ -1,7 +1,8 @@
 import akka.actor.{ActorRef, Props}
 import block.AeneasBlock
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
-import history.{SimpleHistory, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
+import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
+import history.SimpleHistory
 import mining.Miner
 import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
 import scorex.core.app.Application

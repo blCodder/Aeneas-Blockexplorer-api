@@ -1,10 +1,10 @@
 package history
 
 import java.io.File
-import java.util.concurrent.atomic.AtomicInteger
 
 import block.{AeneasBlock, PowBlock}
 import history.storage.SimpleHistoryStorage
+import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import scorex.core.block.BlockValidator
 import scorex.core.consensus.History.{HistoryComparisonResult, ModifierIds, ProgressInfo}
@@ -208,6 +208,9 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      * Older, if other chain is more developed.
      */
    private def findComparisonResultInSyncInfo(currentSyncInfo : VerySimpleSyncInfo, otherSyncInfo : VerySimpleSyncInfo) : HistoryComparisonResult.Value = {
+      if (otherSyncInfo.genesisBlock.deep != genesis().deep)
+         HistoryComparisonResult.Younger
+
       val currentBlocks = currentSyncInfo.lastBlocks.reverse
       val otherBlocks = otherSyncInfo.lastBlocks.reverse
 
@@ -220,8 +223,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
          else if (currentBlocks.tail.exists(el => el.deep == firstOtherBlock.deep))
             HistoryComparisonResult.Younger
 
-         // TODO: get higher blockchain height and send.
-         else HistoryComparisonResult.Younger
+         else HistoryComparisonResult.Nonsense
       }
       else HistoryComparisonResult.Nonsense
    }

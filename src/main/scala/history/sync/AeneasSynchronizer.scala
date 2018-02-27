@@ -1,4 +1,4 @@
-package history
+package history.sync
 
 import akka.actor.ActorRef
 import scorex.core.PersistentNodeViewModifier
@@ -28,6 +28,4 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                          networkSettings: NetworkSettings,
                          timeProvider: NetworkTimeProvider) extends
   NodeViewSynchronizer [P, TX, SI, SIS, PMOD, HR, MR] (networkControllerRef,
-     viewHolderRef, localInterfaceRef, syncInfoSpec, networkSettings, timeProvider) {
-     override protected def processSyncStatus: Receive = ???
-}
+    viewHolderRef, localInterfaceRef, syncInfoSpec, networkSettings, timeProvider) {}

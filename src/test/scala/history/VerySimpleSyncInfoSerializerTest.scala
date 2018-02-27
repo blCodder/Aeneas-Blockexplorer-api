@@ -1,6 +1,7 @@
 package history
 
 import block.PowBlock
+import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoSerializer}
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion

@@ -1,4 +1,4 @@
-package history
+package history.sync
 
 import block.PowBlock
 import com.google.common.primitives.Longs
