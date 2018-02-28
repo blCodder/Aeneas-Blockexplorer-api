@@ -1,11 +1,8 @@
 package history
 
-import java.io.File
-
 import block.{PowBlock, PowBlockCompanion}
 import history.storage.SimpleHistoryStorage
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
-import org.apache.commons.io.FileUtils
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
@@ -22,9 +19,7 @@ class HistoryTest extends FunSuite with Matchers {
    test("History : block sequential append") {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -90,14 +85,14 @@ class HistoryTest extends FunSuite with Matchers {
       history.storage.parentId(block4) shouldBe block3.id
       history.storage.parentId(block3) shouldBe block2.id
       history.storage.parentId(block2) shouldBe block1.id
+
+      TempDbHelper.del(testFile)
    }
 
    test("History : block nonsequential append height test") {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -159,14 +154,14 @@ class HistoryTest extends FunSuite with Matchers {
                        .append(block5).get._1
 
       history.height shouldBe 4
+
+      TempDbHelper.del(testFile)
    }
 
    test("History : receiving of genesis block") {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val store = new LSMStore(testFile, maxJournalEntryCount = 100)
       val storage = new SimpleHistoryStorage(store, settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
@@ -214,5 +209,8 @@ class HistoryTest extends FunSuite with Matchers {
          }
       })
       genesisId.deep shouldBe block1.id.deep
+
+
+      TempDbHelper.del(testFile)
    }
 }
