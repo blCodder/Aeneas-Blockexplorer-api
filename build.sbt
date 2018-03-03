@@ -2,7 +2,7 @@ organization in ThisBuild := "AeneasPlatform"
 
 name := "Aeneas"
 
-version := "0.0.1"
+version := "0.0.1-pre-alpha"
 
 scalaVersion := "2.12.4"
 

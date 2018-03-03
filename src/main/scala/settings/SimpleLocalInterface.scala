@@ -1,22 +1,60 @@
+/*
+ * Copyright 2018, Aeneas Platform.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package settings
 
 import akka.actor.ActorRef
 import block.{AeneasBlock, PowBlock}
 import commons.SimpleBoxTransaction
 import mining.Miner.{MineBlock, StartMining, StopMining}
+import scorex.core.NodeViewHolder.Subscribe
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.core.{LocalInterface, ModifierId}
+import scorex.core.{LocalInterface, ModifierId, NodeViewHolder}
 
 /**
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 31.01.18.
   */
+
 class SimpleLocalInterface (override val viewHolderRef: ActorRef,
                             powMinerRef: ActorRef,
                             minerSettings: SimpleMiningSettings)
   extends LocalInterface[PublicKey25519Proposition, SimpleBoxTransaction, AeneasBlock] {
 
    private var block = false
+
+   override def preStart(): Unit = {
+      val events = Seq(
+         NodeViewHolder.EventType.SuccessfulTransaction,
+         NodeViewHolder.EventType.FailedTransaction,
+
+         NodeViewHolder.EventType.StartingPersistentModifierApplication,
+         NodeViewHolder.EventType.SyntacticallyFailedPersistentModifier,
+         NodeViewHolder.EventType.SemanticallyFailedPersistentModifier,
+         NodeViewHolder.EventType.SuccessfulSyntacticallyValidModifier,
+         NodeViewHolder.EventType.SuccessfulSemanticallyValidModifier,
+
+         NodeViewHolder.EventType.OpenSurfaceChanged,
+         NodeViewHolder.EventType.StateChanged,
+         NodeViewHolder.EventType.FailedRollback,
+
+         NodeViewHolder.EventType.DownloadNeeded
+      )
+      viewHolderRef ! Subscribe(events)
+   }
 
    override protected def onSuccessfulTransaction(tx: SimpleBoxTransaction): Unit = {}
 

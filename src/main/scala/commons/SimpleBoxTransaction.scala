@@ -19,7 +19,7 @@ import wallet.AeneasWallet
 
 import scala.util.Try
 
-//A transaction orders to destroy boxes associated with (pubkey -> nonce) and create new boxes (pubkey -> nonce)
+// A transaction orders to destroy boxes associated with (pubkey -> nonce) and create new boxes (pubkey -> nonce)
 // where a nonce is derived from a transaction and also a box index
 
 // WARNING!: the scheme is not provably secure to replay attacks etc.

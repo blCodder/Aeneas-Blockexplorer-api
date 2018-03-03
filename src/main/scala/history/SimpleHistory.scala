@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018, Aeneas Platform.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package history
 
 import java.io.File
@@ -189,7 +205,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      */
    override def compare(other: VerySimpleSyncInfo): HistoryComparisonResult.Value = {
       if (other.lastBlocks.isEmpty)
-         HistoryComparisonResult.Nonsense
+         HistoryComparisonResult.Younger
 
       log.debug("History : Comparing begins!")
 
@@ -218,6 +234,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       val firstOtherBlock = otherBlocks.head
 
       if (firstCurrentBlock.deep != firstOtherBlock.deep) { // this condition is unreachable, but check it.
+
          if (otherBlocks.tail.exists(el => el.deep == firstCurrentBlock.deep))
             HistoryComparisonResult.Older
          else if (currentBlocks.tail.exists(el => el.deep == firstOtherBlock.deep))
@@ -252,6 +269,10 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 }
 
 object SimpleHistory extends ScorexLogging {
+   def emptyHistory(minerSettings: SimpleMiningSettings) = {
+      new SimpleHistory(null, Seq(), minerSettings)
+   }
+
    def readOrGenerate(settings: ScorexSettings, minerSettings: SimpleMiningSettings): SimpleHistory = {
       readOrGenerate(settings.dataDir, settings.logDir, minerSettings)
    }
@@ -262,7 +283,9 @@ object SimpleHistory extends ScorexLogging {
       iFile.mkdirs()
       val blockStorage = new LSMStore(iFile, maxJournalEntryCount = 10000)
 
-//      val logger = new FileLogger(logDir.getAbsolutePath + "/tails.data")
+      val storage = new SimpleHistoryStorage(blockStorage, settings)
+      if (storage.height == 0)
+         None
 
       Runtime.getRuntime.addShutdownHook(new Thread() {
          override def run(): Unit = {
@@ -271,7 +294,6 @@ object SimpleHistory extends ScorexLogging {
          }
       })
 
-      val storage = new SimpleHistoryStorage(blockStorage, settings)
       val validators = Seq(new DifficultyValidator(settings, storage))
 
       new SimpleHistory(storage, validators, settings)

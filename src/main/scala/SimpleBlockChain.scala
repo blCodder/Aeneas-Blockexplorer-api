@@ -12,6 +12,7 @@ import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import settings.{SimpleLocalInterface, SimpleSettings}
+import viewholder.AeneasNodeViewHolder
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -22,7 +23,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
-   override type NVHT = VerySimpleNodeViewHolder
+   override type NVHT = AeneasNodeViewHolder
    type SI = VerySimpleSyncInfo
    type HIS = SimpleHistory
    type MPOOL = SimpleBoxTransactionMemPool
@@ -34,7 +35,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
    log.info(s"SimpleBlokchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
-   override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new VerySimpleNodeViewHolder(settings, simpleSettings.miningSettings)))
+   override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
 
    override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 

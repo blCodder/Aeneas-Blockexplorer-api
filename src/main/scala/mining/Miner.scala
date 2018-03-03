@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018, Aeneas Platform.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package mining
 
 import akka.actor.{Actor, ActorRef}
@@ -6,19 +22,21 @@ import commons.SimpleBoxTransactionMemPool
 import history.SimpleHistory
 import history.storage.SimpleHistoryStorage
 import scorex.core.LocalInterface.LocallyGeneratedModifier
-import scorex.core.NodeViewHolder.{CurrentView, GetDataFromCurrentView}
+import scorex.core.NodeViewHolder.{CurrentView, GetDataFromCurrentView, NodeViewHolderEvent}
 import scorex.core.block.Block.BlockId
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.hash.Blake2b256
 import settings.SimpleMiningSettings
 import state.SimpleMininalState
+import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent}
 import wallet.AeneasWallet
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.Random
+
 /**
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 30.01.18.
@@ -31,18 +49,16 @@ class Miner(viewHolderRef: ActorRef,
 
    private var cancellableOpt: Option[Cancellable] = None
    private var mining = false
-   private val requriredData = Miner.getRequiredData
+   private val requiredData = Miner.getRequiredData
 
 
    override def preStart(): Unit = {
-      //todo: check for a last block (for what?)
-      if (settings.offlineGen) {
-         context.system.scheduler.scheduleOnce(1.second)(self ! StartMining)
-      }
+      viewHolderRef ! AeneasSubscribe(Seq(NodeViewEvent.StartMining, NodeViewEvent.StopMining))
    }
 
    //noinspection ScalaStyle
    override def receive: Receive = {
+
       case StartMining =>
          if (settings.blockGenDelay >= 1.minute) {
             log.info("Mining is disabled for blockGenerationDelay >= 1 minute")
@@ -116,13 +132,15 @@ class Miner(viewHolderRef: ActorRef,
 
 object Miner extends App with ScorexLogging {
 
-   case object StartMining
+   sealed trait MinerEvent extends NodeViewHolderEvent
 
-   case object StopMining
+   case object StartMining extends MinerEvent
 
-   case object MineBlock
+   case object StopMining extends MinerEvent
 
-   case class MiningInfo(powDifficulty: BigInt, bestPowBlock: PowBlock, pubkey: PublicKey25519Proposition)
+   case object MineBlock extends MinerEvent
+
+   case class MiningInfo(powDifficulty: BigInt, bestPowBlock: PowBlock, pubkey: PublicKey25519Proposition) extends MinerEvent
 
    def powIteration(parentId: BlockId,
                     brothers: Seq[PowBlockHeader],
