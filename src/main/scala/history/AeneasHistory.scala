@@ -19,7 +19,7 @@ package history
 import java.io.File
 
 import block.{AeneasBlock, PowBlock}
-import history.storage.SimpleHistoryStorage
+import history.storage.AeneasHistoryStorage
 import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import scorex.core.block.BlockValidator
@@ -39,12 +39,12 @@ import scala.util.{Failure, Try}
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 22.01.18.
   */
-class SimpleHistory (val storage: SimpleHistoryStorage,
-                     validators : Seq[BlockValidator[AeneasBlock]],
-                     settings: SimpleMiningSettings)
-  extends History[AeneasBlock, VerySimpleSyncInfo, SimpleHistory] with ScorexLogging {
+class AeneasHistory(val storage: AeneasHistoryStorage,
+                    validators : Seq[BlockValidator[AeneasBlock]],
+                    settings: SimpleMiningSettings)
+  extends History[AeneasBlock, VerySimpleSyncInfo, AeneasHistory] with ScorexLogging {
 
-   override type NVCT = SimpleHistory
+   override type NVCT = AeneasHistory
    val height = storage.height
 
    def genesis() : ModifierId = {
@@ -58,7 +58,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
    /**
      * @return append modifier to history
      */
-   override def append(block: AeneasBlock): Try[(SimpleHistory, History.ProgressInfo[AeneasBlock])] = Try {
+   override def append(block: AeneasBlock): Try[(AeneasHistory, History.ProgressInfo[AeneasBlock])] = Try {
       log.info(s"Trying to append block ${Base58.encode(block.id)} to history, $block")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
@@ -90,7 +90,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
                   ProgressInfo(None, Seq(), None, Seq())
             }
          }
-      (new SimpleHistory(storage, validators, settings), progressInfo)
+      (new AeneasHistory(storage, validators, settings), progressInfo)
    }
 
    /**
@@ -124,7 +124,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      */
    //TODO: to know more about semantic validity
    override def reportSemanticValidity(modifier: AeneasBlock, valid: Boolean, lastApplied: ModifierId) :
-   (SimpleHistory, History.ProgressInfo[AeneasBlock]) = {
+   (AeneasHistory, History.ProgressInfo[AeneasBlock]) = {
       this -> History.ProgressInfo(None, Seq(), None, Seq())
    }
 
@@ -268,22 +268,22 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
    }
 }
 
-object SimpleHistory extends ScorexLogging {
+object AeneasHistory extends ScorexLogging {
    def emptyHistory(minerSettings: SimpleMiningSettings) = {
-      new SimpleHistory(null, Seq(), minerSettings)
+      new AeneasHistory(null, Seq(), minerSettings)
    }
 
-   def readOrGenerate(settings: ScorexSettings, minerSettings: SimpleMiningSettings): SimpleHistory = {
+   def readOrGenerate(settings: ScorexSettings, minerSettings: SimpleMiningSettings): AeneasHistory = {
       readOrGenerate(settings.dataDir, settings.logDir, minerSettings)
    }
 
-   def readOrGenerate(dataDir: File, logDir: File, settings: SimpleMiningSettings): SimpleHistory = {
-      log.info(s"SimpleHistory : generation begins at ${dataDir.getAbsolutePath}")
+   def readOrGenerate(dataDir: File, logDir: File, settings: SimpleMiningSettings): AeneasHistory = {
+      log.info(s"AeneasHistory : generation begins at ${dataDir.getAbsolutePath}")
       val iFile = new File(s"${dataDir.getAbsolutePath}/blocks")
       iFile.mkdirs()
       val blockStorage = new LSMStore(iFile, maxJournalEntryCount = 10000)
 
-      val storage = new SimpleHistoryStorage(blockStorage, settings)
+      val storage = new AeneasHistoryStorage(blockStorage, settings)
       if (storage.height == 0)
          None
 
@@ -296,6 +296,6 @@ object SimpleHistory extends ScorexLogging {
 
       val validators = Seq(new DifficultyValidator(settings, storage))
 
-      new SimpleHistory(storage, validators, settings)
+      new AeneasHistory(storage, validators, settings)
    }
 }

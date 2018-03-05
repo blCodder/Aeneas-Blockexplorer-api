@@ -4,7 +4,7 @@ import java.io.File
 import java.util.UUID
 
 import block.{AeneasBlock, PowBlock}
-import history.storage.SimpleHistoryStorage
+import history.storage.AeneasHistoryStorage
 import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import org.apache.commons.io.FileUtils
@@ -23,8 +23,8 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(
@@ -89,8 +89,8 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(
@@ -162,8 +162,8 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(
@@ -232,8 +232,8 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
       val otherAccount = PrivateKey25519Companion.generateKeys("AeZakMee".getBytes)
 
@@ -324,8 +324,8 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val settings = SimpleSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(

@@ -89,7 +89,6 @@ case class PowBlock(override val parentId: BlockId,
 
    override lazy val modifierTypeId: ModifierTypeId = PowBlock.ModifierTypeId
 
-
    lazy val header = new PowBlockHeader(parentId, timestamp, nonce, brothersCount, brothersHash, generatorProposition)
 
    lazy val brotherBytes = serializer.brotherBytes(brothers)

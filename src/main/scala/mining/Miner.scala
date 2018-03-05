@@ -19,8 +19,8 @@ package mining
 import akka.actor.{Actor, ActorRef}
 import block.{AeneasBlock, PowBlock, PowBlockCompanion, PowBlockHeader}
 import commons.SimpleBoxTransactionMemPool
-import history.SimpleHistory
-import history.storage.SimpleHistoryStorage
+import history.AeneasHistory
+import history.storage.AeneasHistoryStorage
 import scorex.core.LocalInterface.LocallyGeneratedModifier
 import scorex.core.NodeViewHolder.{CurrentView, GetDataFromCurrentView, NodeViewHolderEvent}
 import scorex.core.block.Block.BlockId
@@ -43,7 +43,7 @@ import scala.util.Random
   */
 class Miner(viewHolderRef: ActorRef,
             settings: SimpleMiningSettings,
-            storage : SimpleHistoryStorage) extends Actor with ScorexLogging {
+            storage : AeneasHistoryStorage) extends Actor with ScorexLogging {
 
    import Miner._
 
@@ -54,6 +54,7 @@ class Miner(viewHolderRef: ActorRef,
 
    override def preStart(): Unit = {
       viewHolderRef ! AeneasSubscribe(Seq(NodeViewEvent.StartMining, NodeViewEvent.StopMining))
+      viewHolderRef ! MinerAlive
    }
 
    //noinspection ScalaStyle
@@ -134,6 +135,8 @@ object Miner extends App with ScorexLogging {
 
    sealed trait MinerEvent extends NodeViewHolderEvent
 
+   case object MinerAlive extends NodeViewHolderEvent
+
    case object StartMining extends MinerEvent
 
    case object StopMining extends MinerEvent
@@ -148,7 +151,7 @@ object Miner extends App with ScorexLogging {
                     settings: SimpleMiningSettings,
                     proposition: PublicKey25519Proposition,
                     blockGenerationDelay: FiniteDuration,
-                    storage : SimpleHistoryStorage
+                    storage : AeneasHistoryStorage
                    ): Option[PowBlock] = {
       val rand = Random.nextLong()
       val nonce = if (rand > 0) rand else rand * -1
@@ -171,13 +174,13 @@ object Miner extends App with ScorexLogging {
       foundBlock
    }
 
-   def getRequiredData: GetDataFromCurrentView[SimpleHistory,
+   def getRequiredData: GetDataFromCurrentView[AeneasHistory,
      SimpleMininalState,
      AeneasWallet,
      SimpleBoxTransactionMemPool,
      MiningInfo] = {
-      val f: CurrentView[SimpleHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] => MiningInfo = {
-         view: CurrentView[SimpleHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] =>
+      val f: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] => MiningInfo = {
+         view: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] =>
 
             val bestBlock = view.history.storage.bestBlock
             val difficulty = view.history.storage.getPoWDifficulty(None)
@@ -189,7 +192,7 @@ object Miner extends App with ScorexLogging {
             log.info(MiningInfo(difficulty, bestBlock, pubkey).toString)
             MiningInfo(difficulty, bestBlock, pubkey)
       }
-      GetDataFromCurrentView[SimpleHistory,
+      GetDataFromCurrentView[AeneasHistory,
         SimpleMininalState,
         AeneasWallet,
         SimpleBoxTransactionMemPool,

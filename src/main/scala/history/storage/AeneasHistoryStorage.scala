@@ -18,7 +18,7 @@ import scala.util.Failure
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 22.01.18.
   */
-class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings) extends ScorexLogging {
+class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) extends ScorexLogging {
    private val bestBlockIdKey = ByteArrayWrapper(Array.fill(storage.keySize)(-1: Byte))
 
    def bestPowId: ModifierId = storage.get(bestBlockIdKey)

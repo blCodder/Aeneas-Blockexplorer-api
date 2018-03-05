@@ -19,18 +19,18 @@ package history.sync
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
-import history.sync.AeneasSynchronizer.{CheckModifiersToDownload, PreStartDownloadRequest}
-import scorex.core.NodeViewHolder.{DownloadRequest, GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
+import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAlive}
+import scorex.core.NodeViewHolder.{GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
+import scorex.core._
 import scorex.core.consensus.{HistoryReader, SyncInfo}
 import scorex.core.network.NetworkController.SendToNetwork
-import scorex.core.network.message.{Message, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network._
+import scorex.core.network.message.{Message, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network.peer.PeerManager
 import scorex.core.settings.NetworkSettings
 import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.transaction.{MempoolReader, Transaction}
 import scorex.core.utils.NetworkTimeProvider
-import scorex.core.{ModifierId, ModifierTypeId, PersistentNodeViewModifier}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
 
@@ -77,12 +77,9 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
          NodeViewHolder.EventType.SyntacticallyFailedPersistentModifier,
          NodeViewHolder.EventType.SemanticallyFailedPersistentModifier,
          NodeViewHolder.EventType.SuccessfulSyntacticallyValidModifier,
-         NodeViewHolder.EventType.SuccessfulSemanticallyValidModifier,
-
-         // pre-start download events.
-         NodeViewHolder.EventType.StateChanged,
-         NodeViewHolder.EventType.DownloadNeeded
+         NodeViewHolder.EventType.SuccessfulSemanticallyValidModifier
       )
+
       viewHolderRef ! Subscribe(vhEvents)
 
       val aeneasEvents = Seq(
@@ -95,31 +92,44 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       viewHolderRef ! GetNodeViewChanges(history = true, state = true, vault = false, mempool = true)
 
       statusTracker.scheduleSendSyncInfo()
+
+      viewHolderRef ! SynchronizerAlive
    }
 
-   def findModifiersToDownload(): Unit = ???
+   /**
+     * React on `PreStartDownloadRequest` message,
+     * and calls `findModifiersToDownload` method.
+     */
 
    def onDownloadRequest: Receive = {
       case PreStartDownloadRequest =>
-         findModifiersToDownload()
    }
-
 
    def requestDownload(typeId: ModifierTypeId, modifierId: ModifierId) = {
       val msg = Message(requestModifierSpec, Right(typeId -> Seq(modifierId)), None)
-      // TODO: send to well-known peers
       networkControllerRef ! SendToNetwork(msg, Broadcast)
       // TODO: track delivery
    }
 
-   protected val onCheckModifiersToDownload: Receive = {
-      case CheckModifiersToDownload =>
-   }
 
    override protected def viewHolderEvents: Receive =
          onDownloadRequest orElse
-         onCheckModifiersToDownload orElse
          super.viewHolderEvents
+
+   override def receive: Receive =
+      getLocalSyncInfo orElse
+         processSync orElse
+         processSyncStatus orElse
+         processInv orElse
+         modifiersReq orElse
+         requestFromLocal orElse
+         responseFromLocal orElse
+         modifiersFromRemote orElse
+         viewHolderEvents orElse
+         peerManagerEvents orElse
+         checkDelivery orElse {
+         case a: Any => log.error("Strange input: " + a)
+      }
 }
 
 object AeneasSynchronizer {
@@ -127,6 +137,8 @@ object AeneasSynchronizer {
    private val toDownloadCheckInterval = new FiniteDuration(3, TimeUnit.SECONDS)
 
    sealed trait SyncronizerEvent extends NodeViewHolderEvent
+
+   case object SynchronizerAlive extends NodeViewHolderEvent
 
    case object PreStartDownloadRequest extends SyncronizerEvent
 
@@ -137,5 +149,3 @@ object AeneasSynchronizer {
    case object RequestHeight extends SyncronizerEvent
 
 }
-
-

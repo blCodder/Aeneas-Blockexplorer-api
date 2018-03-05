@@ -2,7 +2,7 @@ import akka.actor.{ActorRef, Props}
 import block.AeneasBlock
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
 import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
-import history.SimpleHistory
+import history.AeneasHistory
 import mining.Miner
 import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
 import scorex.core.app.Application
@@ -25,7 +25,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    override type PMOD = AeneasBlock
    override type NVHT = AeneasNodeViewHolder
    type SI = VerySimpleSyncInfo
-   type HIS = SimpleHistory
+   type HIS = AeneasHistory
    type MPOOL = SimpleBoxTransactionMemPool
 
    private val simpleSettings : SimpleSettings = loadSettings.simpleSettings
@@ -40,7 +40,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 
    private val miner = actorSystem.actorOf(Props(new Miner(nodeViewHolderRef,
-      simpleSettings.miningSettings, SimpleHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
+      simpleSettings.miningSettings, AeneasHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
 
    override val localInterface: ActorRef =
    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
