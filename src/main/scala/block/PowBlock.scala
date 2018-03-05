@@ -23,8 +23,7 @@ import scala.util.Try
 
 // This file was transfered from TwinscoinExample
 
-class PowBlockHeader(
-                      val parentId: BlockId,
+class PowBlockHeader( val parentId: BlockId,
                       val timestamp: Block.Timestamp,
                       val nonce: Long,
                       val brothersCount: Int,
@@ -88,7 +87,6 @@ case class PowBlock(override val parentId: BlockId,
    override lazy val version: Version = 0: Byte
 
    override lazy val modifierTypeId: ModifierTypeId = PowBlock.ModifierTypeId
-
 
    lazy val header = new PowBlockHeader(parentId, timestamp, nonce, brothersCount, brothersHash, generatorProposition)
 

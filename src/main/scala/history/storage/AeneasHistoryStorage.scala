@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018, Aeneas Platform.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package history.storage
 
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
@@ -18,7 +34,7 @@ import scala.util.Failure
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 22.01.18.
   */
-class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings) extends ScorexLogging {
+class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) extends ScorexLogging {
    private val bestBlockIdKey = ByteArrayWrapper(Array.fill(storage.keySize)(-1: Byte))
 
    def bestPowId: ModifierId = storage.get(bestBlockIdKey)
@@ -54,8 +70,8 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
       storage.get(ByteArrayWrapper(genesisKey.getBytes("UTF-16")))
    }
 
-   def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) {
-      log.debug(s"History.update : Write new best=$isBest block ${b.encodedId}")
+   def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) : Option[PowBlock] = {
+      log.debug(s"History.update : Write new ${if (isBest) "the best" else ",but not the best"} block ${b.encodedId}")
       val typeByte = b match {
          case _: PowBlock =>
             PowBlock.ModifierTypeId
@@ -82,6 +98,7 @@ class SimpleHistoryStorage (storage : LSMStore, settings : SimpleMiningSettings)
 
       val check = storage.lastVersionID.getOrElse(-1L)
       log.debug(s"History.storage bestId : ${bestBlock.encodedId}")
+      Option(b.asInstanceOf[PowBlock])
    }
 
    def getPoWDifficulty(idOpt: Option[ModifierId]): BigInt = {

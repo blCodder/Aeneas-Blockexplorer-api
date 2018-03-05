@@ -19,7 +19,7 @@ package history
 import java.io.File
 
 import block.{AeneasBlock, PowBlock}
-import history.storage.SimpleHistoryStorage
+import history.storage.AeneasHistoryStorage
 import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import scorex.core.block.BlockValidator
@@ -39,13 +39,14 @@ import scala.util.{Failure, Try}
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 22.01.18.
   */
-class SimpleHistory (val storage: SimpleHistoryStorage,
-                     validators : Seq[BlockValidator[AeneasBlock]],
-                     settings: SimpleMiningSettings)
-  extends History[AeneasBlock, VerySimpleSyncInfo, SimpleHistory] with ScorexLogging {
+class AeneasHistory(val storage: AeneasHistoryStorage,
+                    validators : Seq[BlockValidator[AeneasBlock]],
+                    settings: SimpleMiningSettings)
+  extends History[AeneasBlock, VerySimpleSyncInfo, AeneasHistory] with ScorexLogging {
 
-   override type NVCT = SimpleHistory
+   override type NVCT = AeneasHistory
    val height = storage.height
+   var lastBlock : Option[PowBlock] = None
 
    def genesis() : ModifierId = {
       storage.getGenesis() match {
@@ -55,10 +56,12 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       }
    }
 
+   def bestBlock() : PowBlock = storage.bestBlock
+
    /**
      * @return append modifier to history
      */
-   override def append(block: AeneasBlock): Try[(SimpleHistory, History.ProgressInfo[AeneasBlock])] = Try {
+   override def append(block: AeneasBlock): Try[(AeneasHistory, History.ProgressInfo[AeneasBlock])] = Try {
       log.info(s"Trying to append block ${Base58.encode(block.id)} to history, $block")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
@@ -69,7 +72,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
       val progressInfo: ProgressInfo[AeneasBlock] =
          if (storage.isGenesis(block)) {
             storage.storeGenesis(block)
-            storage.update(block, None, isBest = true)
+            lastBlock = storage.update(block, None, isBest = true)
             log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
@@ -80,9 +83,11 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
                      if (best && block.id.deep == storage.bestPowId.deep) {
                         log.info(s"New block incoming : ${Base58.encode(block.id)}")
                         ProgressInfo(None, Seq(), Some(block), Seq())
-                     } else ProgressInfo(None, Seq(), None, Seq())
+                     } else {
+                        ProgressInfo(None, Seq(), None, Seq())
+                     }
                   }
-                  storage.update(block, None, best)
+                  lastBlock = storage.update(block, None, best)
                   log.debug(s"History.append postappend length : ${storage.height}")
                   mod
                case None =>
@@ -90,7 +95,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
                   ProgressInfo(None, Seq(), None, Seq())
             }
          }
-      (new SimpleHistory(storage, validators, settings), progressInfo)
+      (new AeneasHistory(storage, validators, settings), progressInfo)
    }
 
    /**
@@ -124,7 +129,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
      */
    //TODO: to know more about semantic validity
    override def reportSemanticValidity(modifier: AeneasBlock, valid: Boolean, lastApplied: ModifierId) :
-   (SimpleHistory, History.ProgressInfo[AeneasBlock]) = {
+   (AeneasHistory, History.ProgressInfo[AeneasBlock]) = {
       this -> History.ProgressInfo(None, Seq(), None, Seq())
    }
 
@@ -209,7 +214,7 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
 
       log.debug("History : Comparing begins!")
 
-      val compareSize = syncInfo.lastBlocks.reverse.zipAll(other.lastBlocks.reverse, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
+      val compareSize = syncInfo.lastBlocks.zipAll(other.lastBlocks, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
       if (compareSize == 0)
          HistoryComparisonResult.Equal
       else findComparisonResultInSyncInfo(syncInfo, other)
@@ -268,24 +273,15 @@ class SimpleHistory (val storage: SimpleHistoryStorage,
    }
 }
 
-object SimpleHistory extends ScorexLogging {
-   def emptyHistory(minerSettings: SimpleMiningSettings) = {
-      new SimpleHistory(null, Seq(), minerSettings)
-   }
-
-   def readOrGenerate(settings: ScorexSettings, minerSettings: SimpleMiningSettings): SimpleHistory = {
+object AeneasHistory extends ScorexLogging {
+   def readOrGenerate(settings: ScorexSettings, minerSettings: SimpleMiningSettings): AeneasHistory = {
       readOrGenerate(settings.dataDir, settings.logDir, minerSettings)
    }
 
-   def readOrGenerate(dataDir: File, logDir: File, settings: SimpleMiningSettings): SimpleHistory = {
-      log.info(s"SimpleHistory : generation begins at ${dataDir.getAbsolutePath}")
+   def readOrGenerate(dataDir: File, logDir: File, settings: SimpleMiningSettings): AeneasHistory = {
       val iFile = new File(s"${dataDir.getAbsolutePath}/blocks")
       iFile.mkdirs()
       val blockStorage = new LSMStore(iFile, maxJournalEntryCount = 10000)
-
-      val storage = new SimpleHistoryStorage(blockStorage, settings)
-      if (storage.height == 0)
-         None
 
       Runtime.getRuntime.addShutdownHook(new Thread() {
          override def run(): Unit = {
@@ -294,8 +290,11 @@ object SimpleHistory extends ScorexLogging {
          }
       })
 
+      val storage = new AeneasHistoryStorage(blockStorage, settings)
+      log.debug(s"AeneasHistoryStorage height on generating state : ${storage.height}")
+
       val validators = Seq(new DifficultyValidator(settings, storage))
 
-      new SimpleHistory(storage, validators, settings)
+      new AeneasHistory(storage, validators, settings)
    }
 }
