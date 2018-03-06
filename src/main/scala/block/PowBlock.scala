@@ -23,8 +23,7 @@ import scala.util.Try
 
 // This file was transfered from TwinscoinExample
 
-class PowBlockHeader(
-                      val parentId: BlockId,
+class PowBlockHeader( val parentId: BlockId,
                       val timestamp: Block.Timestamp,
                       val nonce: Long,
                       val brothersCount: Int,

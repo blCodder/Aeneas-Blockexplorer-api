@@ -54,8 +54,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    private var synchronizerStatus = false
    private var minerStatus = false
    /**
-     * Restore a local view during a node startup. If no any stored view found
-     * (e.g. if it is a first launch of a node) None is to be returned
+     * Restore a local view during a node startup.
+     * If no any stored view or other peers in network found, None is to be returned.
+     *
+     * If it is the first launch, history should be empty and
+     * specific signal will be send to sychronizer.
      */
    override def restoreState(): Option[(HIS, MS, VL, MP)] = {
       log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
@@ -65,9 +68,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          val wallet =   AeneasWallet.readOrGenerate(settings, 1)
          val memPool =  SimpleBoxTransactionMemPool.emptyPool
 
+         // if history exists, it will compare blockchains through the SyncInfo.
          history match {
             case content =>
                Some(content, minState, wallet, memPool)
+            // otherwise, it requests the history donwload and send message
             case _ =>
                self ! NotifySubscribersOnRestore
                Some(AeneasHistory.emptyHistory(minerSettings), minState, wallet, memPool)
@@ -120,6 +125,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       aeneasSubscribers.getOrElse(eventType, Seq()).foreach(_ ! signal)
    }
 
+   /**
+     * Handler for specific Aeneas signals.
+     * @see AeneasSynchronizer companion object for more signals.
+     * @see Miner companion object for more signals.
+     */
    protected def handleAeneasSubscribe: Receive = {
       case AeneasNodeViewHolder.AeneasSubscribe(events) =>
          events.foreach { evt =>
@@ -128,6 +138,10 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          }
    }
 
+   /**
+     * Signal happens when application starts at first time
+     * and full blockchain download should be requested.
+     */
    protected def onRestoreMessage : Receive = {
       case NotifySubscribersOnRestore =>
          if (synchronizerStatus && minerStatus) {
@@ -137,12 +151,22 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       case _ =>
    }
 
+   /**
+     * Signal is sent when synchronizer actor is alive.
+     * It happens when application has first-time launch
+     * and full blockchain download should be requested.
+     */
    protected def onSynchronizerAlive : Receive = {
       case SynchronizerAlive =>
          synchronizerStatus = true
          self ! NotifySubscribersOnRestore
    }
 
+   /**
+     * Signal is sent when miner actor is alive.
+     * It happens when application has first-time launch
+     * and full blockchain download should be requested.
+     */
    protected def onMinerAlive : Receive = {
       case MinerAlive =>
          minerStatus = true
@@ -161,10 +185,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          onMinerAlive orElse {
          case a: Any => log.error("Strange input: " + a)
       }
-
-
 }
-
 
 object AeneasNodeViewHolder {
    object NodeViewEvent extends Enumeration {
@@ -172,12 +193,13 @@ object AeneasNodeViewHolder {
       val StartMining : NodeViewEvent.Value = Value(1)
       val StopMining : NodeViewEvent.Value = Value(2)
 
-      // syncronizer events
+      // synchronizer events
       val PreStartDownloadRequest : NodeViewEvent.Value = Value(3)
-      val DowloadStart : NodeViewEvent.Value = Value(4)
-      val DonwloadEnded : NodeViewEvent.Value = Value(5)
-      val RequestHeight : NodeViewEvent.Value = Value(6)
-      val CheckModifiersToDownload : NodeViewEvent.Value = Value(7)
+      val PreStartDownloadResponce : NodeViewEvent.Value = Value(4)
+
+      // downloader events
+      val DownloadBlock = NodeViewEvent.Value(5)
+      val ReceiveBlock = NodeViewEvent.Value(5)
    }
    case class AeneasSubscribe(minerEvents : Seq[NodeViewEvent.Value])
 

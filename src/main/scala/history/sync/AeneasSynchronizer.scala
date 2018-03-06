@@ -19,11 +19,13 @@ package history.sync
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
+import block.PowBlock
+import history.AeneasHistory
 import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAlive}
+import network.messagespec.{FullBlockChainRequestSpec, PoWBlockMessageSpec}
 import scorex.core.NodeViewHolder.{GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
-import scorex.core._
 import scorex.core.consensus.{HistoryReader, SyncInfo}
-import scorex.core.network.NetworkController.SendToNetwork
+import scorex.core.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.core.network._
 import scorex.core.network.message.{Message, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network.peer.PeerManager
@@ -31,6 +33,7 @@ import scorex.core.settings.NetworkSettings
 import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.transaction.{MempoolReader, Transaction}
 import scorex.core.utils.NetworkTimeProvider
+import scorex.core.{ModifierId, ModifierTypeId, NodeViewHolder, PersistentNodeViewModifier}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
 
@@ -52,14 +55,17 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                          localInterfaceRef: ActorRef,
                          syncInfoSpec: SIS,
                          networkSettings: NetworkSettings,
-                         timeProvider: NetworkTimeProvider) extends
+                         timeProvider: NetworkTimeProvider,
+                         downloader : ActorRef) extends
   NodeViewSynchronizer [P, TX, SI, SIS, PMOD, HR, MR] (networkControllerRef,
     viewHolderRef, localInterfaceRef, syncInfoSpec, networkSettings, timeProvider) {
 
+   val powBlockMessageSpec = new PoWBlockMessageSpec
+   val chainSpec = new FullBlockChainRequestSpec
 
    override def preStart(): Unit = {
       //register as a handler for synchronization-specific types of messages
-      val messageSpecs = Seq(invSpec, requestModifierSpec, ModifiersSpec, syncInfoSpec)
+      val messageSpecs = Seq(invSpec, requestModifierSpec, ModifiersSpec, syncInfoSpec, powBlockMessageSpec, chainSpec)
       networkControllerRef ! NetworkController.RegisterMessagesHandler(messageSpecs, self)
 
       val pmEvents = Seq(
@@ -97,17 +103,56 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
    }
 
    /**
-     * React on `PreStartDownloadRequest` message,
-     * and calls `findModifiersToDownload` method.
+     * React on `PreStartDownloadRequest` message and request blockchain download.
+     * It happens when current node has first-time launch.
      */
-
    def onDownloadRequest: Receive = {
       case PreStartDownloadRequest =>
+         val msg = Message(chainSpec, Right("blockchain"), None)
+         networkControllerRef ! SendToNetwork(msg, Broadcast)
    }
 
-   def requestDownload(typeId: ModifierTypeId, modifierId: ModifierId) = {
+   /**
+     * It handles `PreStartDownloadRequest` was sent from peer which begins its work.
+     * It happens if current node has well-known status.
+     * // TODO: Check of well-known status?
+     */
+   def onDonwloadRequestReceived : Receive = {
+      case DataFromPeer(spec, request : String@unchecked, remotePeer) =>
+         if (spec.messageCode == chainSpec.messageCode && request.equals("blockchain")) {
+            historyReaderOpt match {
+               // TODO: be sure that we can cast traited object to AeneasHistory.
+               case Some(history) =>
+                  val historyReader = history.asInstanceOf[AeneasHistory]
+                  val lastBlock = historyReader.bestBlock()
+                  val msg = Message (powBlockMessageSpec, Right(lastBlock), None)
+                  networkControllerRef ! SendToNetwork(msg, SendToPeer(remotePeer))
+
+               case None =>
+            }
+         }
+      case _ =>
+   }
+
+   /** It handles `PreStartDownloadRequest` was sent from peer which begins its work. */
+   def onDownloadReceive : Receive = {
+      case DataFromPeer(spec, block : PowBlock@unchecked, remotePeer) =>
+         if (spec.messageCode == powBlockMessageSpec.messageCode) {
+            historyReaderOpt match {
+               // TODO: be sure that we can cast traited object to AeneasHistory.
+               case Some(history) =>
+                  val historyReader = history.asInstanceOf[AeneasHistory]
+                  historyReader.append(block)
+                  requestBlockToDownload(block.modifierTypeId, block.parentId, remotePeer)
+               case None =>
+            }
+         }
+      case _ =>
+   }
+
+   def requestBlockToDownload(typeId: ModifierTypeId, modifierId: ModifierId, peer : ConnectedPeer): Unit = {
       val msg = Message(requestModifierSpec, Right(typeId -> Seq(modifierId)), None)
-      networkControllerRef ! SendToNetwork(msg, Broadcast)
+      networkControllerRef ! SendToNetwork(msg, SendToPeer(peer))
       // TODO: track delivery
    }
 
@@ -117,7 +162,10 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
          super.viewHolderEvents
 
    override def receive: Receive =
-      getLocalSyncInfo orElse
+      onDownloadRequest orElse
+         onDownloadReceive orElse
+         onDonwloadRequestReceived orElse
+         getLocalSyncInfo orElse
          processSync orElse
          processSyncStatus orElse
          processInv orElse
@@ -138,14 +186,15 @@ object AeneasSynchronizer {
 
    sealed trait SyncronizerEvent extends NodeViewHolderEvent
 
+   /**
+     * Signal is sent when synchronizer actor are alive to `AeneasViewHolder` actor
+     * @see AeneasViewHolder.onRestoreMessage
+     */
    case object SynchronizerAlive extends NodeViewHolderEvent
 
+   /**
+     * Signal will send when first node's launch happens.
+     * It requests whole blockchain download from well-known peers.
+     */
    case object PreStartDownloadRequest extends SyncronizerEvent
-
-   case class DonwloadStart(typeId: ModifierTypeId, modifierId: ModifierId) extends SyncronizerEvent
-
-   case object CheckModifiersToDownload extends SyncronizerEvent
-
-   case object RequestHeight extends SyncronizerEvent
-
 }

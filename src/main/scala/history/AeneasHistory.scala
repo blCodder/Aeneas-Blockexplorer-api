@@ -55,6 +55,8 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
       }
    }
 
+   def bestBlock() : PowBlock = storage.bestBlock
+
    /**
      * @return append modifier to history
      */
