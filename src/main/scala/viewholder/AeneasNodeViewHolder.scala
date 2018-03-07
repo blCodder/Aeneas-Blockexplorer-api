@@ -22,7 +22,8 @@ import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool, SimpleBoxTran
 import history.AeneasHistory
 import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAlive}
 import history.sync.VerySimpleSyncInfo
-import mining.Miner.{MinerAlive, StopMining}
+import mining.Miner.{MinerAlive, StartMining, StopMining}
+import network.BlockchainDownloader.DownloadEnded
 import scorex.core.NodeViewHolder.NodeViewHolderEvent
 import scorex.core.serialization.Serializer
 import scorex.core.settings.ScorexSettings
@@ -151,6 +152,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       case _ =>
    }
 
+   protected def onDownloadEnded : Receive = {
+      case DownloadEnded =>
+         notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
+   }
+
    /**
      * Signal is sent when synchronizer actor is alive.
      * It happens when application has first-time launch
@@ -196,10 +202,6 @@ object AeneasNodeViewHolder {
       // synchronizer events
       val PreStartDownloadRequest : NodeViewEvent.Value = Value(3)
       val PreStartDownloadResponce : NodeViewEvent.Value = Value(4)
-
-      // downloader events
-      val DownloadBlock = NodeViewEvent.Value(5)
-      val ReceiveBlock = NodeViewEvent.Value(5)
    }
    case class AeneasSubscribe(minerEvents : Seq[NodeViewEvent.Value])
 

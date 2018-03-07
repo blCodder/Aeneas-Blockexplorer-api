@@ -70,7 +70,7 @@ class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) 
       storage.get(ByteArrayWrapper(genesisKey.getBytes("UTF-16")))
    }
 
-   def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) {
+   def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) : Option[PowBlock] = {
       log.debug(s"History.update : Write new best=$isBest block ${b.encodedId}")
       val typeByte = b match {
          case _: PowBlock =>
@@ -98,6 +98,7 @@ class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) 
 
       val check = storage.lastVersionID.getOrElse(-1L)
       log.debug(s"History.storage bestId : ${bestBlock.encodedId}")
+      Option(b.asInstanceOf[PowBlock])
    }
 
    def getPoWDifficulty(idOpt: Option[ModifierId]): BigInt = {

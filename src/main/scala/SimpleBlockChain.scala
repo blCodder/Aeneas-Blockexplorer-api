@@ -46,7 +46,9 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    override val localInterface: ActorRef =
    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
 
-   val downloaderActor : ActorRef = actorSystem.actorOf(Props(new BlockchainDownloader(networkControllerRef, nodeViewHolderRef)))
+   val downloaderActor : ActorRef =
+      actorSystem.actorOf(Props(
+         new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network)))
 
    override val nodeViewSynchronizer: ActorRef =
       actorSystem.actorOf(Props(

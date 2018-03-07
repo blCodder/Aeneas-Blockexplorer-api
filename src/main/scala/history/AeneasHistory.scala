@@ -46,6 +46,7 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
 
    override type NVCT = AeneasHistory
    val height = storage.height
+   var lastBlock : Option[PowBlock] = None
 
    def genesis() : ModifierId = {
       storage.getGenesis() match {
@@ -71,7 +72,7 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
       val progressInfo: ProgressInfo[AeneasBlock] =
          if (storage.isGenesis(block)) {
             storage.storeGenesis(block)
-            storage.update(block, None, isBest = true)
+            lastBlock = storage.update(block, None, isBest = true)
             log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
@@ -84,7 +85,7 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
                         ProgressInfo(None, Seq(), Some(block), Seq())
                      } else ProgressInfo(None, Seq(), None, Seq())
                   }
-                  storage.update(block, None, best)
+                  lastBlock = storage.update(block, None, best)
                   log.debug(s"History.append postappend length : ${storage.height}")
                   mod
                case None =>

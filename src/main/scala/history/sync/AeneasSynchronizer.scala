@@ -21,19 +21,21 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import block.PowBlock
 import history.AeneasHistory
-import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAlive}
+import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SendMessageSpec, SynchronizerAlive}
+import network.BlockchainDownloader.SendBlockRequest
 import network.messagespec.{FullBlockChainRequestSpec, PoWBlockMessageSpec}
 import scorex.core.NodeViewHolder.{GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
+import scorex.core.block.Block.BlockId
 import scorex.core.consensus.{HistoryReader, SyncInfo}
 import scorex.core.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.core.network._
-import scorex.core.network.message.{Message, ModifiersSpec, SyncInfoMessageSpec}
+import scorex.core.network.message.{Message, MessageSpec, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network.peer.PeerManager
 import scorex.core.settings.NetworkSettings
 import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.transaction.{MempoolReader, Transaction}
 import scorex.core.utils.NetworkTimeProvider
-import scorex.core.{ModifierId, ModifierTypeId, NodeViewHolder, PersistentNodeViewModifier}
+import scorex.core.{ModifierTypeId, NodeViewHolder, PersistentNodeViewModifier}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
 
@@ -99,11 +101,14 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
 
       statusTracker.scheduleSendSyncInfo()
 
+      downloader ! SendMessageSpec(requestModifierSpec)
+
       viewHolderRef ! SynchronizerAlive
    }
 
    /**
      * React on `PreStartDownloadRequest` message and request blockchain download.
+     * It is start of so-called "blockchain handshake"
      * It happens when current node has first-time launch.
      */
    def onDownloadRequest: Receive = {
@@ -114,10 +119,11 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
 
    /**
      * It handles `PreStartDownloadRequest` was sent from peer which begins its work.
+     * Also it can be imagined as "blockchain handshake" procedure!
      * It happens if current node has well-known status.
      * // TODO: Check of well-known status?
      */
-   def onDonwloadRequestReceived : Receive = {
+   def onDownloadRequestReceived : Receive = {
       case DataFromPeer(spec, request : String@unchecked, remotePeer) =>
          if (spec.messageCode == chainSpec.messageCode && request.equals("blockchain")) {
             historyReaderOpt match {
@@ -134,6 +140,17 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       case _ =>
    }
 
+   /**
+     * It sends request to send request from `downloader` actor to ask well-known peer
+     * to send batch of blocks from correct and original blockchain to this node.
+     * @param modifierTypeId
+     * @param parentId
+     * @param remotePeer
+     */
+   def sendRequestToDownloader(modifierTypeId: ModifierTypeId, parentId: BlockId, remotePeer: ConnectedPeer): Unit = {
+      downloader ! SendBlockRequest(modifierTypeId, parentId, remotePeer)
+   }
+
    /** It handles `PreStartDownloadRequest` was sent from peer which begins its work. */
    def onDownloadReceive : Receive = {
       case DataFromPeer(spec, block : PowBlock@unchecked, remotePeer) =>
@@ -143,28 +160,23 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                case Some(history) =>
                   val historyReader = history.asInstanceOf[AeneasHistory]
                   historyReader.append(block)
-                  requestBlockToDownload(block.modifierTypeId, block.parentId, remotePeer)
+                  sendRequestToDownloader(block.modifierTypeId, block.parentId, remotePeer)
                case None =>
             }
          }
       case _ =>
    }
 
-   def requestBlockToDownload(typeId: ModifierTypeId, modifierId: ModifierId, peer : ConnectedPeer): Unit = {
-      val msg = Message(requestModifierSpec, Right(typeId -> Seq(modifierId)), None)
-      networkControllerRef ! SendToNetwork(msg, SendToPeer(peer))
-      // TODO: track delivery
-   }
-
 
    override protected def viewHolderEvents: Receive =
          onDownloadRequest orElse
+         onDownloadReceive orElse
          super.viewHolderEvents
 
    override def receive: Receive =
       onDownloadRequest orElse
          onDownloadReceive orElse
-         onDonwloadRequestReceived orElse
+         onDownloadRequestReceived orElse
          getLocalSyncInfo orElse
          processSync orElse
          processSyncStatus orElse
@@ -197,4 +209,10 @@ object AeneasSynchronizer {
      * It requests whole blockchain download from well-known peers.
      */
    case object PreStartDownloadRequest extends SyncronizerEvent
+
+   /**
+     * Signal with message spec is sent to downloader actor.
+     * @param spec concrete message spec.
+     */
+   case class SendMessageSpec(spec: MessageSpec[_]) extends NodeViewHolderEvent
 }
