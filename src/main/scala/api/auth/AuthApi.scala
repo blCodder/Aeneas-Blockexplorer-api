@@ -30,7 +30,22 @@ class AuthApi(aeneasSettings: AeneasSettings)(implicit system: ActorSystem, exec
       }
     } ~ path("signup") {
       handleWebSocketMessages(websocketSignUpFlow())
+    } ~ path("passphrasesaved") {
+      handleWebSocketMessages(websocketSavedFlow())
+    } ~ path("confirmpassphrase") {
+    parameter('passphrase) {passPhraseConfirm =>
+      val ppConfirm = passPhraseConfirm.split("\\,")
+      handleWebSocketMessages(websocketSavedFlow())
     }
+  }
+
+  def websocketSavedFlow (): Flow[Message, Message, NotUsed] =
+    Flow[Message]
+        .map(_ => NewAccountEvents.SavedPassPhrase())
+        .via(accFlow.savedPassPhraseFlow())
+          .map(_ => TextMessage.Strict(Json.fromString("ok").noSpaces))
+        .via(reportErrorsFlow)
+
 
   def websocketSignUpFlow () : Flow[Message, Message, NotUsed] =
     Flow[Message]
@@ -40,9 +55,10 @@ class AuthApi(aeneasSettings: AeneasSettings)(implicit system: ActorSystem, exec
         case x:Seq[String] =>
           TextMessage.Strict(Json.fromValues(x.map(Json.fromString)).toString())
         case _ =>
-          TextMessage.Strict(Json.fromFields(Seq("error"->Json.fromString ("fail"))).toString())
+          TextMessage.Strict(Json.fromFields(Seq("error"->Json.fromString ("data isn't correct passphrase"))).toString())
       }.via(reportErrorsFlow)
 
+  def websocketPassPhrase
   def websocketRegWithPwdFlow(pwd: String, pwdConfirm:String): Flow[Message, Message, Any] =
     Flow[Message]
       .collect {

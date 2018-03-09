@@ -13,6 +13,7 @@ import api.Protocol
 trait NewAccountFlow {
   def newAccountFlowWithPwd (password:String): Flow[String, Protocol.Message, Any]
   def newAccountFlow (): Flow[NewAccountEvents.CallToSignUp, Seq[String], NotUsed]
+  def savedPassPhraseFlow ():Flow[NewAccountEvents.SavedPassPhrase, NotUsed, NotUsed]
 }
 
 object CreateAccountFlow {
@@ -45,6 +46,14 @@ object CreateAccountFlow {
             newAccActor ! NewAccountEvents.NewPassPhraseGenerated(phrase)
             phrase
           })
+        Flow.fromSinkAndSource(in, out)
+      }
+
+      override def savedPassPhraseFlow(): Flow[NewAccountEvents.SavedPassPhrase, NotUsed, NotUsed] = {
+        val in =
+          Flow[NewAccountEvents.SavedPassPhrase].to(
+            Sink.actorRef[NewAccountEvents.SavedPassPhrase](newAccActor, NewAccountEvents.SavedPassPhrase))
+        val out:Source[NotUsed, NotUsed] = Source.empty
         Flow.fromSinkAndSource(in, out)
       }
     }

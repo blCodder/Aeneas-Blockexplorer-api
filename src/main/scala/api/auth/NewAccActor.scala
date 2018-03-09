@@ -15,18 +15,23 @@ class NewAccActor extends Actor with ScorexLogging{
 
   override def receive: Receive = {
     case NewAccountEvents.ReceivedPassword(pwd) =>
-      log.info(s"password : $pwd")
+      log.debug(s"password : $pwd")
     case NewAccountEvents.CallToSignUp =>
+      log.debug("Call To Sign Up")
       if (!passPhraseSavedByUser) signUpStarted = true
     case NewAccountEvents.NewPassPhraseGenerated(passPhrase) =>
+      log.debug(s"NewPassPhraseGenerated:$passPhrase")
       if (signUpStarted) currentPassPhrase = passPhrase
     case NewAccountEvents.SignUpCancelled =>
+      log.debug("Sign Up Cancelled by user ")
       signUpStarted = false
       passPhraseSavedByUser = false
     case NewAccountEvents.SavedPassPhrase =>
+      log.debug("Pass Phrase Saves By User")
       if (signUpStarted) passPhraseSavedByUser = true
     case NewAccountEvents.ConfirmPassPhrase(confirmPhraseSeq) =>
-      if (currentPassPhrase.sameElements(confirmPhraseSeq)){
+      log.debug(s"Pass Phrase Confirmed by User : $confirmPhraseSeq")
+      if (currentPassPhrase == confirmPhraseSeq){
 
       }
   }
