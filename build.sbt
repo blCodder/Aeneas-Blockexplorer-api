@@ -11,9 +11,9 @@ javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 resolvers += Resolver.bintrayRepo("parabellum1905y","maven")
 
 val typesafeDependencies = Seq (
-  "com.typesafe.akka" %% "akka-http" % "10.0.10",
-  "com.typesafe.akka" %% "akka-stream" % "2.5.4",
-  "com.typesafe.akka" %% "akka-actor"  % "2.5.4",
+  "com.typesafe.akka" %% "akka-http" % "10.0.11",
+  "com.typesafe.akka" %% "akka-stream" % "2.5.5",
+  "com.typesafe.akka" %% "akka-actor"  % "2.5.5",
   "com.typesafe" % "config" % "1.3.1"
 )
 

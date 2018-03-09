@@ -10,7 +10,7 @@ import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.crypto.encode.Base58
-import settings.SimpleSettings
+import settings.AeneasSettings
 
 import scala.util.Success
 
@@ -20,7 +20,7 @@ import scala.util.Success
   */
 class HistoryTest extends FunSuite with Matchers {
    test("History : block sequential append") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
       FileUtils.deleteDirectory(testFile)
@@ -93,7 +93,7 @@ class HistoryTest extends FunSuite with Matchers {
    }
 
    test("History : block nonsequential append height test") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
       FileUtils.deleteDirectory(testFile)
@@ -162,7 +162,7 @@ class HistoryTest extends FunSuite with Matchers {
    }
 
    test("History : receiving of genesis block") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
       FileUtils.deleteDirectory(testFile)

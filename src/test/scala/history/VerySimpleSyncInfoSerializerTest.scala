@@ -5,7 +5,7 @@ import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoSerializer}
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
-import settings.SimpleSettings
+import settings.AeneasSettings
 
 /**
   * @author luger.
@@ -13,7 +13,7 @@ import settings.SimpleSettings
   */
 class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
   test ("From Air SyncInfo Serialize") {
-    val settings = SimpleSettings.read()
+    val settings = AeneasSettings.read()
     val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
     val block1 = new PowBlock(

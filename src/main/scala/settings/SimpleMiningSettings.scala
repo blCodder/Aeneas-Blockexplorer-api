@@ -28,10 +28,11 @@ case class SimpleMiningSettings(offlineGen : Boolean,
    lazy val GenesisParentId = ModifierId @@ Array.fill(32)(1: Byte)
 }
 
-case class SimpleSettings(scorexSettings: ScorexSettings, miningSettings: SimpleMiningSettings)
 
-object SimpleSettings extends SettingsReaders {
-   def read(): SimpleSettings = {
+case class AeneasSettings(scorexSettings: ScorexSettings, miningSettings: SimpleMiningSettings, wsApiSettings:WsApiSettings, seedSettings: SeedSettings)
+
+object AeneasSettings extends SettingsReaders {
+   def read(): AeneasSettings = {
       val config = ConfigFactory.load()
       if (!config.hasPath("scorex")) {
          throw new Error("Malformed configuration file was provided! Aborting!")//TODO remove throw Exception with Try
@@ -39,13 +40,14 @@ object SimpleSettings extends SettingsReaders {
       fromConfig(config)
    }
 
-   implicit val networkSettingsValueReader: ValueReader[SimpleSettings] =
+   implicit val networkSettingsValueReader: ValueReader[AeneasSettings] =
       (cfg: Config, path: String) => fromConfig(cfg.getConfig(path))
 
-   private def fromConfig(config: Config): SimpleSettings = {
+   private def fromConfig(config: Config): AeneasSettings = {
       val miningSettings = config.as[SimpleMiningSettings]("scorex.miner")
       val scorexSettings = config.as[ScorexSettings]("scorex")
-
-      SimpleSettings(scorexSettings, miningSettings)
+      val wsApiSettings  = config.as[WsApiSettings]("scorex.api")
+      val seedSettings  = config.as[SeedSettings]("scorex.seedGen")
+      AeneasSettings(scorexSettings, miningSettings, wsApiSettings, seedSettings)
    }
 }
