@@ -7,6 +7,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.Flow
 import api.Protocol
+import api.auth.NewAccountEvents.GeneratedConfirmationPassPhrase
 import io.circe.Json
 import scorex.core.utils.ScorexLogging
 import settings.AeneasSettings
@@ -43,7 +44,12 @@ class AuthApi(aeneasSettings: AeneasSettings)(implicit system: ActorSystem, exec
     Flow[Message]
         .map(_ => NewAccountEvents.SavedPassPhrase())
         .via(accFlow.savedPassPhraseFlow())
-          .map(_ => TextMessage.Strict(Json.fromString("ok").noSpaces))
+          .map{
+            case x:Seq[String] =>
+              TextMessage.Strict(Json.fromValues(x.map(Json.fromString)).toString())
+            case _ =>
+              TextMessage.Strict(Json.fromFields(Seq("error"->Json.fromString ("data isn't correct confirmation passphrase"))).toString())
+          }
         .via(reportErrorsFlow)
 
 
@@ -58,7 +64,6 @@ class AuthApi(aeneasSettings: AeneasSettings)(implicit system: ActorSystem, exec
           TextMessage.Strict(Json.fromFields(Seq("error"->Json.fromString ("data isn't correct passphrase"))).toString())
       }.via(reportErrorsFlow)
 
-  def websocketPassPhrase
   def websocketRegWithPwdFlow(pwd: String, pwdConfirm:String): Flow[Message, Message, Any] =
     Flow[Message]
       .collect {

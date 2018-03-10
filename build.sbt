@@ -20,7 +20,8 @@ val typesafeDependencies = Seq (
 val testDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.0.3",
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
-  "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test"
+  "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test",
+  "com.typesafe.akka" %% "akka-http-testkit" % "10.1.0"
 )
 
 val loggingDependencies = Seq(

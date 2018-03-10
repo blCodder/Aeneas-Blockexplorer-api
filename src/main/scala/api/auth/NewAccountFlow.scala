@@ -13,7 +13,7 @@ import api.Protocol
 trait NewAccountFlow {
   def newAccountFlowWithPwd (password:String): Flow[String, Protocol.Message, Any]
   def newAccountFlow (): Flow[NewAccountEvents.CallToSignUp, Seq[String], NotUsed]
-  def savedPassPhraseFlow ():Flow[NewAccountEvents.SavedPassPhrase, NotUsed, NotUsed]
+  def savedPassPhraseFlow ():Flow[NewAccountEvents.SavedPassPhrase, Seq[String], NotUsed]
 }
 
 object CreateAccountFlow {
@@ -49,11 +49,16 @@ object CreateAccountFlow {
         Flow.fromSinkAndSource(in, out)
       }
 
-      override def savedPassPhraseFlow(): Flow[NewAccountEvents.SavedPassPhrase, NotUsed, NotUsed] = {
+      override def savedPassPhraseFlow(): Flow[NewAccountEvents.SavedPassPhrase, Seq[String], NotUsed] = {
         val in =
           Flow[NewAccountEvents.SavedPassPhrase].to(
             Sink.actorRef[NewAccountEvents.SavedPassPhrase](newAccActor, NewAccountEvents.SavedPassPhrase))
-        val out:Source[NotUsed, NotUsed] = Source.empty
+        val out:Source[Seq[String], NotUsed] = Source.actorRef[NewAccountEvents.GeneratedConfirmationPassPhrase](256, OverflowStrategy.fail)
+          .mapMaterializedValue{outActor =>
+            newAccActor ! NewAccountEvents.ConfirmationOutActorRef(outActor)
+            NotUsed
+          }.map(confirmationPhrase => confirmationPhrase.passPhrase)
+
         Flow.fromSinkAndSource(in, out)
       }
     }
