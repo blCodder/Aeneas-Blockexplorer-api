@@ -52,6 +52,9 @@ class AuthApi(aeneasSettings: AeneasSettings)(implicit system: ActorSystem, exec
           }
         .via(reportErrorsFlow)
 
+  def webSocketComparingPassPhraseFlow (confirmationPassPhrase: Seq[String]): Flow[Message, Message, NotUsed] =
+    Flow[Message]
+          .via()
 
   def websocketSignUpFlow () : Flow[Message, Message, NotUsed] =
     Flow[Message]
