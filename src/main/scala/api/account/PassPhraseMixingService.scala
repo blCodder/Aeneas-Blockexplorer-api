@@ -1,4 +1,4 @@
-package api.auth
+package api.account
 
 import settings.AeneasSettings
 

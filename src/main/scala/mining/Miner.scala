@@ -24,6 +24,7 @@ import scala.util.Random
   *         Created on 30.01.18.
   */
 class Miner(viewHolderRef: ActorRef,
+            clientInformatorRef : ActorRef,
             settings: SimpleMiningSettings,
             storage : SimpleHistoryStorage) extends Actor with ScorexLogging {
 
@@ -105,7 +106,7 @@ class Miner(viewHolderRef: ActorRef,
       case b: PowBlock =>
          cancellableOpt.foreach(_.cancel())
          viewHolderRef ! LocallyGeneratedModifier[AeneasBlock](b)
-
+         clientInformatorRef ! b
       case StopMining =>
          mining = false
 

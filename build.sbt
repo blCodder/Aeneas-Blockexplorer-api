@@ -40,7 +40,7 @@ val scorexDependencies = Seq(
   "org.scorexfoundation" %% "iodb" % "0.3.2"
 )
 
-val circeVersion = "0.8.0"
+val circeVersion = "0.9.1"
 
 libraryDependencies in ThisBuild ++= Seq(
   "com.iheart" %% "ficus" % "1.4.2",
@@ -48,6 +48,7 @@ libraryDependencies in ThisBuild ++= Seq(
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
+  "io.circe" %% "circe-generic-extras" % circeVersion,
   "org.bitlet" % "weupnp" % "0.1.+",
   "commons-net" % "commons-net" % "3.+"
 

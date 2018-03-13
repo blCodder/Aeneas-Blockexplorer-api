@@ -1,6 +1,8 @@
-package api.auth
+package api.account
 
 import akka.actor.ActorRef
+import api.account.CreateAccountFlow.UserKey
+import io.circe.Decoder
 
 /**
   * @author luger. Created on 07.03.18.
@@ -9,13 +11,17 @@ import akka.actor.ActorRef
 object NewAccountEvents{
   sealed trait NewAccountEvent
   case class ReceivedPassword(pwd: String) extends NewAccountEvent
-  case class CallToSignUp () extends NewAccountEvent
+  case class CallToSignUp (passPhrase:List[String]) extends NewAccountEvent
   case class SignUpCancelled () extends NewAccountEvent
-  case class NewPassPhraseGenerated (passPhrase:List[String]) extends NewAccountEvent
   case class BackupPassPhrase() extends NewAccountEvent
   case class GeneratedConfirmationPassPhrase(passPhrase: List[String]) extends NewAccountEvent
+  case class GeneratedSeed(userKey: Option[UserKey]) extends NewAccountEvent
   case class ConfirmationOutActorRef(ref:ActorRef) extends NewAccountEvent
+  case class SeedOutActorRef(ref:ActorRef) extends NewAccountEvent
   case class ConfirmPassPhrase(passPhrase: List[String]) extends NewAccountEvent
   case class SavedPassPhrase() extends NewAccountEvent
+  case class ErrorEvent (msg:String) extends NewAccountEvent
+  case class ImportAccont(passPhrase: List[String]) extends NewAccountEvent
+  case class SignIn (publicSeed:String, pwd:String) extends NewAccountEvent
 }
 
