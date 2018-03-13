@@ -5,7 +5,7 @@ import akka.actor.{ActorRef, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import api.WsServerRunner
-import api.account.{ClientInformActor, SignUpApi}
+import api.account.SignUpApi
 import block.AeneasBlock
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
 import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
@@ -49,19 +49,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
 
    override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 
-   val wFile = new File (simpleSettings.scorexSettings.dataDir.getAbsolutePath + File.separator + "account")
-   if (!wFile.exists) wFile.mkdirs()
-
-   val storage = new LSMStore(wFile, maxJournalEntryCount = 10000)
-   val wsApi = new SignUpApi(simpleSettings, storage)
-
-   private val pool = Executors.newCachedThreadPool()
-   private implicit val exectutionContext: ExecutionContextExecutorService = ExecutionContext.fromExecutorService(pool)
-
-   private val clientInformer = actorSystem.actorOf(Props(new ClientInformActor(wsApi)))
-
    private val miner = actorSystem.actorOf(Props(new Miner(nodeViewHolderRef,
-      clientInformer,
       simpleSettings.miningSettings, SimpleHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
 
    override val localInterface: ActorRef =
@@ -72,7 +60,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
          new NodeViewSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL]
          (networkControllerRef, nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider)))
 
-   new WsServerRunner(wsApi, simpleSettings).run
+   new WsServerRunner(miner, simpleSettings).run
    /**
      * API description in openapi format in YAML or JSON
      */

@@ -5,10 +5,10 @@ import java.security.{KeyStore, SecureRandom}
 import java.util.concurrent.Executors
 import javax.net.ssl.{KeyManagerFactory, SSLContext}
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
-import api.account.SignUpApi
+import api.account.{PowBlocksBroadcast, SignUpApi}
 import io.iohk.iodb.LSMStore
 import settings.AeneasSettings
 
@@ -20,12 +20,29 @@ import scala.util.{Failure, Success}
   * @author luger. Created on 09.03.18.
   * @version ${VERSION}
   */
-class WsServerRunner(wsApi: SignUpApi, aeneasSettings: AeneasSettings)(implicit system:ActorSystem, executionContext: ExecutionContext){
+class WsServerRunner(miner:ActorRef, aeneasSettings: AeneasSettings)(implicit system:ActorSystem){
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
+
+  private val storage: LSMStore = {
+    val wFile = new File (aeneasSettings.scorexSettings.dataDir.getAbsolutePath + File.separator + "account")
+    if (!wFile.exists) wFile.mkdirs()
+    new LSMStore(wFile, maxJournalEntryCount = 10000)
+  }
+
+  private implicit val exectutionContext: ExecutionContextExecutorService = {
+    val pool = Executors.newCachedThreadPool()
+    ExecutionContext.fromExecutorService(pool)
+  }
+
+
   def run = {
+    import akka.http.scaladsl.server.Directives._
+
+    val wsApi = new SignUpApi(aeneasSettings, storage)
+    val broadcastBlocksApi = new PowBlocksBroadcast(miner, aeneasSettings)
     val addr = aeneasSettings.wsApiSettings.bindAddress
-    val bind = Http().bindAndHandle(wsApi.route, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
+    val bind = Http().bindAndHandle(wsApi.route ~ broadcastBlocksApi.route, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
     bind.onComplete {
       case Success(binding) =>
         val localAddress = binding.localAddress

@@ -42,35 +42,8 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
 
   private val newAccActor = system.actorOf(Props(new NewAccActor(store)))
 
-  implicit val materializer = ActorMaterializer()
-
-  val bufferSize = 256
-
-  //if the buffer fills up then this strategy drops the oldest elements
-  //upon the arrival of a new element.
-  val overflowStrategy = akka.stream.OverflowStrategy.dropHead
-
-  val source: Source[String, SourceQueueWithComplete[String]] = Source.queue(
-    bufferSize, overflowStrategy
-  )
-
-  val queue: RunnableGraph[(SourceQueueWithComplete[String], Source[String, NotUsed])] =
-    source.toMat( BroadcastHub.sink(bufferSize) )(Keep.both)
-
-  val producer2: (SourceQueueWithComplete[String], Source[String, NotUsed]) = queue.run()
-
-  producer2._2.runWith(Sink.ignore)
-
-
   def route: Route = path("signup") {
       handleWebSocketMessages(flowByEventType())
-    } ~ path("broadcast") {
-      handleWebSocketMessages(broadcast())
-    } ~ path("confirmpassphrase") {
-      parameter('passphrase) {passPhraseConfirm =>
-        val ppConfirm = passPhraseConfirm.split("\\,")
-        handleWebSocketMessages(webSocketComparingPassPhraseFlow(ppConfirm.toList))
-      }
     }
 
   def websocketSavedFlow (): Flow[Message, Message, NotUsed] =
@@ -150,11 +123,6 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
       FlowShape(messagesToAccountEvent.in, accountEventsToMessage.out)
     })*/
 
-  def broadcast(): Flow[Message, Message, NotUsed] =
-    Flow[Message]
-      .mapConcat(_ => List.empty[String]) // Ignore any data sent from the client
-      .merge(producer2._2)
-      .map(l => TextMessage(l.toString))
 
   def flowByEventType(): Flow [Message, Message, Any] ={
     implicit val askTimeout: Timeout = Timeout(30.seconds)
@@ -162,13 +130,12 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
       .mapAsync(1){
         case x@NewAccountEvents.ErrorEvent(_) =>
           Future.successful(x).map(mapAccountEventsToMessage(_))
-        case NewAccountEvents.SavedPassPhrase() =>
-          log.debug("SavedPassPhrase")
-          askActor[NewAccountEvents.SavedPassPhrase](newAccActor, NewAccountEvents.SavedPassPhrase())
-            .map(mapAccountEventsToMessage)
         case event =>
+          log.debug(s"event:$event, actr:$newAccActor")
+          val asked = askActor[NewAccountEvents.NewAccountEvent ](newAccActor, event)
+          log.debug(s"asked:$asked")
           askActor[NewAccountEvents.NewAccountEvent ](newAccActor, event)
-            .map(mapAccountEventsToMessage)
+            .map(x => mapAccountEventsToMessage (x) )
     }
   }
 
@@ -291,9 +258,5 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
         case _ => // ignore regular completion
       })
 
-  def publishBlock (pb:PowBlock) = {
-    log.debug(s"pb : $pb")
-    producer2._1.offer(pb.json.noSpaces)
-  }
 }
 
