@@ -13,6 +13,7 @@ object SignUpMessagesType {
   case class SetLocalPass(password:String, confirmPassword:String) extends SignupMessages
   case class ImportAccont (passPhrase: List[String]) extends SignupMessages
   case class Login (seed:String, pwd:String) extends SignupMessages
+  case class Logout (seed:String) extends SignupMessages
 
   case class SignUpMessage (msg:SignupMessages)
 }

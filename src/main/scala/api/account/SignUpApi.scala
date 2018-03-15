@@ -103,6 +103,8 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(
           case Signup() =>
             val phrase = passPhraseMixingService.generateRandomPassPhrase()
             NewAccountEvents.CallToSignUp(phrase)
+          case CancelSignUp() =>
+            NewAccountEvents.SignUpCancelled()
           case PassPhraseSaved() =>
             log.debug("PassPhraseSaved")
             NewAccountEvents.SavedPassPhrase()
