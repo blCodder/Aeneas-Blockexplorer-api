@@ -5,22 +5,11 @@ import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.stream.{ActorMaterializer, OverflowStrategy}
-import akka.stream.scaladsl.{BroadcastHub, Flow, Keep, RunnableGraph, Sink, Source, SourceQueueWithComplete}
+import akka.stream.scaladsl.Flow
 import akka.util.Timeout
-import api.Protocol
-import api.account.CreateAccountFlow.UserKey
-import io.circe._
-import io.circe.generic.semiauto._
+import api.account.circe.json.codecs._
 import io.circe.parser.decode
 import io.circe.syntax._
-import api.account.circe._
-import api.account.circe.json.codecs._
-import java.time._
-
-import block.PowBlock
-import io.circe.syntax._
-import io.circe.parser._
 import io.iohk.iodb.LSMStore
 import scorex.core.api.http.ActorHelper
 import scorex.core.utils.ScorexLogging
@@ -34,8 +23,8 @@ import scala.util.Failure
   * @author luger. Created on 01.03.18.
   * @version ${VERSION}
   */
-//sealed trait
-class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system: ActorSystem, executionContext: ExecutionContext) extends ScorexLogging with ActorHelper{
+class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(
+  implicit system: ActorSystem, executionContext: ExecutionContext) extends ScorexLogging with ActorHelper{
   val passPhraseMixingService = new PassPhraseMixingService(aeneasSettings)
 
   val accFlow = CreateAccountFlow(passPhraseMixingService, store)
@@ -46,85 +35,8 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
       handleWebSocketMessages(flowByEventType())
     }
 
-  def websocketSavedFlow (): Flow[Message, Message, NotUsed] =
-    Flow[Message]
-        .map(_ => NewAccountEvents.SavedPassPhrase())
-        .via(accFlow.savedPassPhraseFlow())
-          .map{
-            case x:Seq[String] =>
-              TextMessage.Strict(x.asJson.noSpaces)
-            case _ =>
-              TextMessage.Strict(Seq("response"->"error".asJson, "error"->"data isn't correct confirmation passphrase".asJson).asJson.noSpaces)
-          }
-        .via(reportErrorsFlow)
 
-  def webSocketComparingPassPhraseFlow (confirmationPassPhrase: List[String]): Flow[Message, Message, NotUsed] =
-    Flow[Message]
-        .map(_ => NewAccountEvents.ConfirmPassPhrase(confirmationPassPhrase))
-          .via(accFlow.confirmPassPhraseFlow(confirmationPassPhrase))
-          .map{
-            case Some(x:UserKey) =>
-              TextMessage.Strict(Map ("key" -> x.key, "seed" -> x.seed).asJson.noSpaces)
-            case None =>
-              TextMessage.Strict(Seq("response"->"error".asJson, "error"->"data isn't correct key-pair".asJson).asJson.noSpaces)
-          }
-
-
-/*
-
-  def websocketSignUpFlow () : Flow[Message, Message, NotUsed] =
-    Flow[Message]
-        .map (_ => NotUsed)
-      .via(accFlow.newAccountFlow())
-      .map {
-        case x:Seq[String] =>
-          TextMessage.Strict(x.asJson.noSpaces)
-        case _ =>
-          TextMessage.Strict(Seq("response"->"error".asJson, "error"->"data isn't correct passphrase".asJson).asJson.noSpaces)
-      }.via(reportErrorsFlow)
-*/
-/*
-
-
-  val newAccSource = Source.actorRef[NewAccountEvents.NewAccountEvent](10, OverflowStrategy.fail)
-*/
-/*
-    Flow.fromGraph(GraphDSL.create(){implicit builder =>
-      import GraphDSL.Implicits._
-
-      //val merge = builder.add(Merge[NewAcflowByEventTypecountEvents.NewAccountEvent](3))
-
-      val matConfirmation = builder.materializedValue.map{actorRef =>
-        NewAccountEvents.ConfirmationOutActorRef(actorRef)
-      }
-
-      val matSeed = builder.materializedValue.map{actorRef =>
-        NewAccountEvents.SeedOutActorRef(actorRef)
-      }
-
-      mapclientEventToAccountEvent().via()
-      val messagesToAccountEvent = builder.add(mapclientEventToAccountEvent())
-
-      val accountEventsToMessage = builder.add(mapAccountEventsToMessage())
-
-      mapclientEventToAccountEvent().map{x => newAccActor ! x}
-
-/*
-      val accountConfirm =
-        Sink.actorRef[NewAccountEvents.NewAccountEvent](newAccActor, NewAccountEvents.ConfirmPassPhrase(confirmationPassPhrase))
-*/
-
-      //matConfirmation ~> merge
-      //matSeed ~> merge
-      //messagesToAccountEvent ~> merge
-      //merge ~> accountEventsToMessage
-      //localAccActor ~> accountEventsToMessage
-      messagesToAccountEvent ~> accountEventsToMessage
-      FlowShape(messagesToAccountEvent.in, accountEventsToMessage.out)
-    })*/
-
-
-  def flowByEventType(): Flow [Message, Message, Any] ={
+  private def flowByEventType(): Flow [Message, Message, Any] ={
     implicit val askTimeout: Timeout = Timeout(30.seconds)
     mapclientEventToAccountEvent()
       .mapAsync(1){
@@ -132,15 +44,15 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
           Future.successful(x).map(mapAccountEventsToMessage(_))
         case event =>
           log.debug(s"event:$event, actr:$newAccActor")
-          val asked = askActor[NewAccountEvents.NewAccountEvent ](newAccActor, event)
+          val asked = askActor[NewAccountEvents.NewAccountEvent](newAccActor, event)
           log.debug(s"asked:$asked")
           askActor[NewAccountEvents.NewAccountEvent ](newAccActor, event)
             .map(x => mapAccountEventsToMessage (x) )
-    }
+    }.via(reportErrorsFlow)
   }
 
 
-  def mapAccountEventsToMessage (event : NewAccountEvents.NewAccountEvent): TextMessage.Strict = event match {
+  private def mapAccountEventsToMessage (event : NewAccountEvents.NewAccountEvent): TextMessage.Strict = event match {
       case csu@NewAccountEvents.CallToSignUp(_) =>
         TextMessage (csu.passPhrase.asJson.noSpaces)
       case pp@NewAccountEvents.GeneratedConfirmationPassPhrase(_) =>
@@ -174,12 +86,11 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
 
 
 
-  def mapclientEventToAccountEvent (): Flow[Message, NewAccountEvents.NewAccountEvent, NotUsed] =
+  private def mapclientEventToAccountEvent (): Flow[Message, NewAccountEvents.NewAccountEvent, NotUsed] =
     Flow[Message].collect {
       case TextMessage.Strict(t) => t
     }.map { msg =>
       import SignUpMessagesType._
-
       log.debug(s">>>>>>>> MSG:$msg, msgs:${SignUpMessage(Signup()).asJson.noSpaces}")
       decode[SignUpMessage](msg) match {
         case Left(_) =>
@@ -220,37 +131,7 @@ class SignUpApi(aeneasSettings: AeneasSettings, store:LSMStore)(implicit system:
       }
     }
 
-
-  def websocketSignUpFlow () : Flow[Message, Message, NotUsed] =
-    Flow[Message]
-        .collect{
-          case TextMessage.Strict(msg) => msg
-        }
-      .map{msg =>
-          NotUsed
-      }
-      .via(accFlow.newAccountFlow())
-      .map {
-        case x:Seq[String] =>
-          TextMessage.Strict(x.asJson.noSpaces)
-        case _ =>
-          TextMessage.Strict(Seq("response"->"error".asJson, "error"->"data isn't correct passphrase".asJson).asJson.noSpaces)
-      }.via(reportErrorsFlow)
-
-
-  def websocketRegWithPwdFlow(pwd: String): Flow[Message, Message, NotUsed] =
-    Flow[Message]
-      .map { _ =>
-        pwd
-      }.via(accFlow.newAccountFlowWithPwd(pwd))
-      .map {
-        case msg: Protocol.CreateAccount =>
-          TextMessage.Strict(Seq("response"->"success".asJson).asJson.noSpaces)
-        case _ =>
-          TextMessage.Strict(Seq("response"->"error".asJson, "error"->"data isn't correct pwd".asJson).asJson.noSpaces)
-    }.via(reportErrorsFlow)
-
-  def reportErrorsFlow[T]: Flow[T, T, Any] =
+  private def reportErrorsFlow[T]: Flow[T, T, Any] =
     Flow[T]
       .watchTermination()((_, f) => f.onComplete {
         case Failure(cause) =>
