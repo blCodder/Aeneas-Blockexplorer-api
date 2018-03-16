@@ -7,7 +7,7 @@ package api.account
 object SignUpMessagesType {
   sealed trait SignupMessages
   case class Signup() extends SignupMessages
-  case class CancelSignUp() extends SignupMessages
+    case class CancelSignUp() extends SignupMessages
   case class PassPhraseSaved() extends SignupMessages
   case class ConfirmPassPhrase(passphrase:List[String]) extends SignupMessages
   case class SetLocalPass(password:String, confirmPassword:String) extends SignupMessages

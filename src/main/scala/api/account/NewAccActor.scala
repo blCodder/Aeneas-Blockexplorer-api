@@ -36,6 +36,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
       signUpStarted = false
       passPhraseSavedByUser = false
       currentPassPhrase = List.empty
+      shufflePassPhrase = List.empty
       sender() ! NewAccountEvents.SignUpCancelled
   }
 
@@ -58,8 +59,6 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
         val privateId = Sha256(currentPassPhrase.mkString(",").getBytes("UTF-8"))
         val publicSeed = Sha256(privateId)
         userKeySet += UserKey (new String (publicSeed, "UTF-8"), new String (privateId, "UTF-8"))
-        currentPassPhrase = List.empty
-        shufflePassPhrase = List.empty
         signUpStarted = false
         passPhraseSavedByUser = false
         sender() ! NewAccountEvents.GeneratedSeed(userKeySet.headOption)
@@ -69,6 +68,8 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
   private def receivedPassword:Receive = {
     case NewAccountEvents.ReceivedPassword(pwd) =>
       log.debug(s"password : $pwd")
+      currentPassPhrase = List.empty
+      shufflePassPhrase = List.empty
       userKeySet.headOption match {
         case Some (x) =>
           val UserKey (publicSeed, privateId) = x
