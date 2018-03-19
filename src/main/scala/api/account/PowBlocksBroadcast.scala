@@ -19,9 +19,13 @@ import scala.concurrent.{ExecutionContext, Future}
   * @author luger. Created on 13.03.18.
   * @version ${VERSION}
   */
-class PowBlocksBroadcast (miner:ActorRef, aeneasSettings: AeneasSettings)(
-  implicit system: ActorSystem, executionContext: ExecutionContext) extends ScorexLogging with ActorHelper{
-  implicit private val materializer: ActorMaterializer = ActorMaterializer()
+trait PowBlocksBroadcast extends ScorexLogging with ActorHelper{
+  protected def miner:ActorRef
+  protected def aeneasSettings: AeneasSettings
+  protected implicit def system: ActorSystem
+  protected implicit def executionContext: ExecutionContext
+
+  implicit protected val materializer: ActorMaterializer = ActorMaterializer()
 
   val bufferSize = 256
 
@@ -30,34 +34,24 @@ class PowBlocksBroadcast (miner:ActorRef, aeneasSettings: AeneasSettings)(
 
   private val overflowStrategy: OverflowStrategy = akka.stream.OverflowStrategy.dropHead
 
-  private val source: Source[String, SourceQueueWithComplete[String]] = Source.queue(
+  private val source: Source[PowBlock, SourceQueueWithComplete[PowBlock]] = Source.queue(
     bufferSize, overflowStrategy
   )
 
-  private val queue: RunnableGraph[(SourceQueueWithComplete[String], Source[String, NotUsed])] =
+  private val queue: RunnableGraph[(SourceQueueWithComplete[PowBlock], Source[PowBlock, NotUsed])] =
     source.toMat( BroadcastHub.sink(bufferSize) )(Keep.both)
 
-  val producer: (SourceQueueWithComplete[String], Source[String, NotUsed]) = queue.run()
+  val producer: (SourceQueueWithComplete[PowBlock], Source[PowBlock, NotUsed]) = queue.run()
 
   producer._2.runWith(Sink.ignore)
 
 
-  private def broadcast(): Flow[Message, Message, NotUsed] =
-    Flow[Message]
-      .mapConcat(_ => List.empty[String]) // Ignore any data sent from the client
-      .merge(producer._2)
-      .map(l => TextMessage(l.toString))
-
   def publishBlock (pb:PowBlock): Future[QueueOfferResult] = {
     log.debug(s"pb : $pb")
-    producer._1.offer(pb.json.noSpaces)
+    producer._1.offer(pb)
   }
 
   system.actorOf(Props(new InformatorActor(miner, this)))
-
-  def route: Route = path("broadcast") {
-    handleWebSocketMessages(broadcast())
-  }
 }
 
 class InformatorActor(val miner:ActorRef, powBlocksBroadcast:PowBlocksBroadcast) extends Actor {

@@ -1,8 +1,6 @@
 package api.account
 
 import akka.actor.ActorRef
-import api.account.CreateAccountFlow.UserKey
-import io.circe.Decoder
 
 /**
   * @author luger. Created on 07.03.18.
@@ -23,5 +21,8 @@ object NewAccountEvents{
   case class ErrorEvent (msg:String) extends NewAccountEvent
   case class ImportAccont(passPhrase: List[String]) extends NewAccountEvent
   case class SignIn (publicSeed:String, pwd:String) extends NewAccountEvent
+  case class GetSavedSeeds () extends NewAccountEvent
+  case class ReturnSavedSeeds (seeds:List[String]) extends NewAccountEvent
+  case class Logout (publicSeed:String) extends NewAccountEvent
 }
 

@@ -1,15 +1,17 @@
 package api.account
 
 import akka.actor.Actor
-import api.account.CreateAccountFlow.UserKey
+import api.util.Encryption
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.core.utils.ScorexLogging
+import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Sha256
 
 import scala.collection.mutable
-import scala.util.Random
+import scala.util.{Random, Success}
 
 /**
+  * processing events from user form for Registration Flow
   * @author luger. Created on 07.03.18.
   * @version ${VERSION}
   */
@@ -19,6 +21,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
   private var signUpStarted = false
   private var passPhraseSavedByUser = false
   private val userKeySet = mutable.HashSet[UserKey]()
+
 
   private def signup:Receive = {
     case NewAccountEvents.CallToSignUp(passPhrase) =>
@@ -55,58 +58,50 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
     case NewAccountEvents.ConfirmPassPhrase(confirmPhraseSeq) =>
       log.debug(s"Pass Phrase Confirmed by User : $confirmPhraseSeq, ${currentPassPhrase == confirmPhraseSeq}")
       if (currentPassPhrase == confirmPhraseSeq){
-        //store.update() TODO: save account to database
-        val privateId = Sha256(currentPassPhrase.mkString(",").getBytes("UTF-8"))
-        val publicSeed = Sha256(privateId)
-        userKeySet += UserKey (new String (publicSeed, "UTF-8"), new String (privateId, "UTF-8"))
+        val privateId = Base58.encode(Sha256(currentPassPhrase.mkString(",").getBytes("UTF-8")))
+        val publicSeed = Base58.encode(Sha256(privateId))
+        userKeySet += UserKey (publicSeed, privateId)
+        log.debug(s"seed set:$userKeySet")
         signUpStarted = false
         passPhraseSavedByUser = false
         sender() ! NewAccountEvents.GeneratedSeed(userKeySet.headOption)
       }else sender() ! NewAccountEvents.ErrorEvent("password equals not confirmation password")
   }
 
+  /**
+    *
+    * @return
+    */
   private def receivedPassword:Receive = {
     case NewAccountEvents.ReceivedPassword(pwd) =>
       log.debug(s"password : $pwd")
       currentPassPhrase = List.empty
       shufflePassPhrase = List.empty
-      userKeySet.headOption match {
-        case Some (x) =>
-          val UserKey (publicSeed, privateId) = x
-
+      userKeySet.headOption.map{x =>
+        val UserKey (publicSeed, privateId) = x
+        (Base58.decode(publicSeed), privateId)
+      } match {
+        case Some ((Success(publicSeed), privateId)) =>
           store.update(
-            ByteArrayWrapper(publicSeed.getBytes("UTF-8")), Seq(),
-            Seq (ByteArrayWrapper(publicSeed.getBytes("UTF-8")) -> ByteArrayWrapper(Encryption .encrypt(pwd, privateId).getBytes("UTF-8"))))
-        case None =>
+            ByteArrayWrapper(publicSeed), Seq(),
+            Seq (ByteArrayWrapper(publicSeed) -> ByteArrayWrapper(Encryption.encrypt(pwd, privateId).getBytes("UTF-8"))))
+          sender() ! NewAccountEvents.ReceivedPassword(pwd)
+          userKeySet.clear()
+        case _ =>
+          sender() ! NewAccountEvents.ErrorEvent("Seed or PrivateId is corrupted")
       }
-      userKeySet.clear()
-      sender() ! NewAccountEvents.ReceivedPassword(pwd)
   }
 
   def importAccount ():Receive = {
     case NewAccountEvents.ImportAccont(passPhrase) =>
-      val privateId = Sha256(passPhrase.mkString(",").getBytes("UTF-8"))
-      val publicSeed = Sha256(privateId)
-      userKeySet += UserKey (new String (publicSeed, "UTF-8"), new String (privateId, "UTF-8"))
+      val privateId = Base58.encode(Sha256(passPhrase.mkString(",")))
+      val publicSeed = Base58.encode(Sha256(privateId))
+      userKeySet += UserKey (publicSeed, privateId)
       signUpStarted = false
       passPhraseSavedByUser = false
       sender() ! NewAccountEvents.GeneratedSeed(userKeySet.headOption)
   }
 
-  def login (): Receive = {
-    case NewAccountEvents.SignIn(seed, pwd) =>
-      val privateId = store.get(ByteArrayWrapper(seed.getBytes("UTF-8")))
-      privateId match {
-        case Some(id) =>
-          if (
-            Sha256 (
-              Encryption.decrypt(pwd, new String (id.data, "UTF-8")).getBytes("UTF-8")
-            ).sameElements (seed.getBytes("UTF-8")))
-            sender() ! NewAccountEvents.ReceivedPassword(pwd)
-        case None =>
-          sender() ! NewAccountEvents.ErrorEvent("Account not found")
-      }
-  }
 
   override def receive: Receive =
     signup orElse
@@ -119,3 +114,6 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
         sender() ! NewAccountEvents.ErrorEvent("Unknown event type")
     }
 }
+
+
+case class UserKey (seed:String, key:String)

@@ -37,12 +37,9 @@ class WsServerRunner(miner:ActorRef, aeneasSettings: AeneasSettings)(implicit sy
 
 
   def run = {
-    import akka.http.scaladsl.server.Directives._
-
-    val wsApi = new SignUpApi(aeneasSettings, storage)
-    val broadcastBlocksApi = new PowBlocksBroadcast(miner, aeneasSettings)
+    val wsApi = new SignUpApi(miner, aeneasSettings, storage)
     val addr = aeneasSettings.wsApiSettings.bindAddress
-    val bind = Http().bindAndHandle(wsApi.route ~ broadcastBlocksApi.route, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
+    val bind = Http().bindAndHandle(wsApi.route, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
     bind.onComplete {
       case Success(binding) =>
         val localAddress = binding.localAddress

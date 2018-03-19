@@ -1,4 +1,4 @@
-package api.account
+package api.util
 
 import java.security.MessageDigest
 import java.util
