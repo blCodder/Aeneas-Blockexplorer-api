@@ -108,6 +108,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
       signupCancellation orElse
       savedPassPhrase orElse
       confirmPassPhrase orElse
+      importAccount orElse
       receivedPassword orElse {
       case x =>
         log.error(s"Unknown event type $x")

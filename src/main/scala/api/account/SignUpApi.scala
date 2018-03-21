@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext
 class SignUpApi(minerVal:ActorRef, aeneasSettingsVal: AeneasSettings, store:LSMStore)(
   implicit systemVal: ActorSystem, executionContextVal: ExecutionContext) extends SignUpService{
 
-  override val aeneasSettings: AeneasSettings = aeneasSettingsVal
+  override lazy val aeneasSettings: AeneasSettings = aeneasSettingsVal
 
   override protected lazy val miner: ActorRef = minerVal
 

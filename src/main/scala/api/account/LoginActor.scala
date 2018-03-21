@@ -8,7 +8,7 @@ import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Sha256
 
 import scala.collection.mutable
-import scala.util.{Random, Success}
+import scala.util.{Failure, Random, Success}
 
 /**
   * processing events from user form for Registration Flow
@@ -24,9 +24,15 @@ class LoginActor(store:LSMStore) extends Actor with ScorexLogging{
           val privateId = store.get(ByteArrayWrapper(seedByteArray))
           privateId match {
             case Some(id) =>
-              val idInBase58 = Encryption.decrypt(pwd, new String (id.data, "UTF-8"))
-              if (seed == Base58.encode(Sha256(idInBase58)))
-                sender() ! NewAccountEvents.ReceivedPassword(pwd)
+              Encryption.decrypt(pwd, new String (id.data, "UTF-8")) match {
+                case Success(idInBase58) =>
+                  if (seed == Base58.encode(Sha256(idInBase58)))
+                    sender() ! NewAccountEvents.ReceivedPassword(pwd)
+                  else
+                    sender() ! NewAccountEvents.ErrorEvent("Account not found")
+                case Failure(_) =>
+                  sender() ! NewAccountEvents.ErrorEvent("Account not found")
+              }
             case None =>
               sender() ! NewAccountEvents.ErrorEvent("Account not found")
           }
