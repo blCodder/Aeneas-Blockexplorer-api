@@ -15,6 +15,7 @@ import settings.AeneasSettings
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.io.Source
 import scala.util.{Failure, Success}
+import akka.http.scaladsl.server.Directives._
 
 /**
   * @author luger. Created on 09.03.18.
@@ -38,8 +39,9 @@ class WsServerRunner(miner:ActorRef, aeneasSettings: AeneasSettings)(implicit sy
 
   def run = {
     val wsApi = new SignUpApi(miner, aeneasSettings, storage)
+    val static = new StaticRoutes(aeneasSettings)
     val addr = aeneasSettings.wsApiSettings.bindAddress
-    val bind = Http().bindAndHandle(wsApi.route, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
+    val bind = Http().bindAndHandle(wsApi.route ~ static.generate, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
     bind.onComplete {
       case Success(binding) =>
         val localAddress = binding.localAddress

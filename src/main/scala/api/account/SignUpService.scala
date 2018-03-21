@@ -73,6 +73,8 @@ trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLoggi
         ErrorResponse(msg)
       case NewAccountEvents.Logout(seed) =>
         Logout(seed)
+      case NewAccountEvents.ImportAccont(phrase) =>
+        ImportAccont(phrase)
       case NewAccountEvents.ReturnSavedSeeds(seeds) =>
         SavedSeeds(seeds)
       case _ =>
@@ -88,6 +90,7 @@ trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLoggi
       log.debug(s">>>>>>>> MSG:$msg")
       decode[SignUpMessage](msg) match {
         case Left(_) =>
+          log.error("epic fail")
           NewAccountEvents.ErrorEvent("unknown message type")
         case Right(signUpMsg) => signUpMsg.msg match {
           case Signup() =>

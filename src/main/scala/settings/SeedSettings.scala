@@ -8,7 +8,7 @@ import java.io.File
   * @version ${VERSION}
   */
 case class SeedSettings(passPhraseSize: Int = 15, file:String){
-  val fileDictSrc = new File (getClass.getResource("/"+file).getPath)
+  val fileDictSrc = new File(Option (getClass.getResource("/"+file)).map(_.getPath).getOrElse(file))
   if (!fileDictSrc.exists()) throw new Error("Malformed words dictionary file was provided! Aborting!")
 
 }

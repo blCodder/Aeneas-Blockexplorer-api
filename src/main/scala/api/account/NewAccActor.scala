@@ -1,5 +1,7 @@
 package api.account
 
+import java.time.{LocalDateTime, ZoneOffset}
+
 import akka.actor.Actor
 import api.util.Encryption
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
@@ -83,7 +85,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
       } match {
         case Some ((Success(publicSeed), privateId)) =>
           store.update(
-            ByteArrayWrapper(publicSeed), Seq(),
+            ByteArrayWrapper(publicSeed ++ String.valueOf(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)).getBytes()), Seq(),
             Seq (ByteArrayWrapper(publicSeed) -> ByteArrayWrapper(Encryption.encrypt(pwd, privateId).getBytes("UTF-8"))))
           sender() ! NewAccountEvents.ReceivedPassword(pwd)
           userKeySet.clear()

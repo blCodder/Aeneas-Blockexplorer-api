@@ -29,7 +29,7 @@ case class SimpleMiningSettings(offlineGen : Boolean,
 }
 
 
-case class AeneasSettings(scorexSettings: ScorexSettings, miningSettings: SimpleMiningSettings, wsApiSettings:WsApiSettings, seedSettings: SeedSettings)
+case class AeneasSettings(scorexSettings: ScorexSettings, miningSettings: SimpleMiningSettings, wsApiSettings:WsApiSettings, staticFilesSettings: StaticFilesSettings, seedSettings: SeedSettings)
 
 object AeneasSettings extends SettingsReaders {
    def read(): AeneasSettings = {
@@ -47,7 +47,8 @@ object AeneasSettings extends SettingsReaders {
       val miningSettings = config.as[SimpleMiningSettings]("scorex.miner")
       val scorexSettings = config.as[ScorexSettings]("scorex")
       val wsApiSettings  = config.as[WsApiSettings]("scorex.api")
+      val staticFilesSettings  = config.as[StaticFilesSettings]("scorex.static")
       val seedSettings  = config.as[SeedSettings]("scorex.seedGen")
-      AeneasSettings(scorexSettings, miningSettings, wsApiSettings, seedSettings)
+      AeneasSettings(scorexSettings, miningSettings, wsApiSettings, staticFilesSettings, seedSettings)
    }
 }
