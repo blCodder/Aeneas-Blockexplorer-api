@@ -1,6 +1,7 @@
 package history
 
 import java.io.File
+import java.util.UUID
 
 import block.PowBlock
 import history.storage.SimpleHistoryStorage
@@ -21,9 +22,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
    test("SyncInfo : equal multiple elements compare test") {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -83,14 +82,13 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Equal
       simpleSyncInfo.blockchainHeight shouldBe history.height
+      TempDbHelper.del(testFile)
    }
 
    test("SyncInfo : multiple elements compare test with older chain") {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -157,14 +155,13 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Younger
+      TempDbHelper.del(testFile)
    }
 
    test("SyncInfo : multiple elements compare test with younger chain") {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -228,14 +225,13 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Older
+      TempDbHelper.del(testFile)
    }
 
    test("SyncInfo : multiple elements compare with different chain") {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -321,14 +317,13 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Nonsense
+      TempDbHelper.del(testFile)
    }
 
    test("SyncInfo : multiple elements compare with chain of genesis block") {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
-      val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/blocks")
-      FileUtils.deleteDirectory(testFile)
-      testFile.mkdirs()
+      val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
       var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
@@ -372,5 +367,6 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
 
       val res = history.compare(simpleSyncInfo)
       res shouldBe HistoryComparisonResult.Younger
+      TempDbHelper.del(testFile)
    }
 }
