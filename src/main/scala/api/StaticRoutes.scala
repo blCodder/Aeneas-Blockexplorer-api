@@ -50,6 +50,7 @@ class StaticRoutes(aeneasSettings: AeneasSettings) {
 
             val ext = getExtensions(fullPath.getFileName.toString)
             val c : ContentType = ContentType(MediaTypes.forExtensionOption(ext).getOrElse(MediaTypes.`text/plain`), () => HttpCharsets.`UTF-8`)
+            println(s"fullPath: $fullPath")
             val byteArray = Files.readAllBytes(fullPath)
             HttpResponse(OK, entity = HttpEntity(c, byteArray))
           }
