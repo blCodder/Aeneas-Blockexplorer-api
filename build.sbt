@@ -11,16 +11,17 @@ javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 resolvers += Resolver.bintrayRepo("parabellum1905y","maven")
 
 val typesafeDependencies = Seq (
-  "com.typesafe.akka" %% "akka-http" % "10.0.10",
-  "com.typesafe.akka" %% "akka-stream" % "2.5.4",
-  "com.typesafe.akka" %% "akka-actor"  % "2.5.4",
+  "com.typesafe.akka" %% "akka-http" % "10.0.11",
+  "com.typesafe.akka" %% "akka-stream" % "2.5.5",
+  "com.typesafe.akka" %% "akka-actor"  % "2.5.5",
   "com.typesafe" % "config" % "1.3.1"
 )
 
 val testDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.0.3",
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
-  "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test"
+  "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test",
+  "com.typesafe.akka" %% "akka-http-testkit" % "10.1.0"
 )
 
 val loggingDependencies = Seq(
@@ -39,7 +40,7 @@ val scorexDependencies = Seq(
   "org.scorexfoundation" %% "iodb" % "0.3.2"
 )
 
-val circeVersion = "0.8.0"
+val circeVersion = "0.9.1"
 
 libraryDependencies in ThisBuild ++= Seq(
   "com.iheart" %% "ficus" % "1.4.2",
@@ -47,6 +48,7 @@ libraryDependencies in ThisBuild ++= Seq(
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
+  "io.circe" %% "circe-generic-extras" % circeVersion,
   "org.bitlet" % "weupnp" % "0.1.+",
   "commons-net" % "commons-net" % "3.+"
 

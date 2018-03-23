@@ -3,7 +3,7 @@ package history
 import java.io.File
 import java.util.UUID
 
-import block.{AeneasBlock, PowBlock}
+import block.PowBlock
 import history.storage.SimpleHistoryStorage
 import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
@@ -12,7 +12,7 @@ import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.consensus.History.HistoryComparisonResult
 import scorex.core.transaction.state.PrivateKey25519Companion
-import settings.SimpleSettings
+import settings.AeneasSettings
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -20,7 +20,7 @@ import settings.SimpleSettings
   */
 class SyncInfoComparingTest extends FunSuite with Matchers {
    test("SyncInfo : equal multiple elements compare test") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
@@ -86,7 +86,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
    }
 
    test("SyncInfo : multiple elements compare test with older chain") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
@@ -159,7 +159,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
    }
 
    test("SyncInfo : multiple elements compare test with younger chain") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
@@ -229,7 +229,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
    }
 
    test("SyncInfo : multiple elements compare with different chain") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
@@ -321,7 +321,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
    }
 
    test("SyncInfo : multiple elements compare with chain of genesis block") {
-      val settings = SimpleSettings.read()
+      val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
       val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)

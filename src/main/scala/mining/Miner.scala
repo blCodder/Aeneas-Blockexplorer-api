@@ -28,7 +28,7 @@ class Miner(viewHolderRef: ActorRef,
             storage : SimpleHistoryStorage) extends Actor with ScorexLogging {
 
    import Miner._
-
+   private var clientInformatorRef : Option[ActorRef] = None
    private var cancellableOpt: Option[Cancellable] = None
    private var mining = false
    private val requriredData = Miner.getRequiredData
@@ -105,16 +105,21 @@ class Miner(viewHolderRef: ActorRef,
       case b: PowBlock =>
          cancellableOpt.foreach(_.cancel())
          viewHolderRef ! LocallyGeneratedModifier[AeneasBlock](b)
-
+         clientInformatorRef.foreach(_ ! b)
       case StopMining =>
          mining = false
 
+      case UiInformatorSubscribe =>
+         if (clientInformatorRef.isEmpty)
+            clientInformatorRef = Option(sender())
       case a: Any =>
          log.warn(s"Strange input: $a")
    }
 }
 
 object Miner extends App with ScorexLogging {
+
+   case object UiInformatorSubscribe
 
    case object StartMining
 
