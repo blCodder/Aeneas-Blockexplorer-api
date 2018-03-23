@@ -1,7 +1,8 @@
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import block.AeneasBlock
+import com.typesafe.config.ConfigFactory
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
-import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
+import history.sync.{AeneasSynchronizer, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
 import history.AeneasHistory
 import mining.Miner
 import network.BlockchainDownloader
@@ -20,7 +21,7 @@ import viewholder.AeneasNodeViewHolder
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain(loadSettings: LoadSettings) extends Application with ScorexLogging {
+class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
@@ -34,7 +35,9 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    // Note : NEVER NEVER forget to mark implicit as LAZY!
    override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
-   log.info(s"SimpleBlokchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
+   log.info(s"SimpleBloсkchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
+
+   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActor)
 
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
 
@@ -52,8 +55,8 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
 
    override val nodeViewSynchronizer: ActorRef =
       actorSystem.actorOf(Props(
-         new NodeViewSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL]
-         (networkControllerRef, nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider)))
+         new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL] (networkControllerRef,
+            nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
 
    /**
      * API description in openapi format in YAML or JSON
@@ -68,8 +71,11 @@ object SimpleBlockChain {
    }
 }
 
-case class LoadSettings() {
-  val simpleSettings : SimpleSettings = SimpleSettings.read()
+case class LoadSettings() extends ScorexLogging {
+   val simpleSettings : SimpleSettings = SimpleSettings.read()
+   private val root = ConfigFactory.load()
+   val aeneasActor = root.getConfig("Aeneas")
+   log.debug(aeneasActor.toString)
   // set logging path:
   sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
 }

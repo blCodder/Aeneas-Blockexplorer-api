@@ -83,7 +83,9 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
                      if (best && block.id.deep == storage.bestPowId.deep) {
                         log.info(s"New block incoming : ${Base58.encode(block.id)}")
                         ProgressInfo(None, Seq(), Some(block), Seq())
-                     } else ProgressInfo(None, Seq(), None, Seq())
+                     } else {
+                        ProgressInfo(None, Seq(), None, Seq())
+                     }
                   }
                   lastBlock = storage.update(block, None, best)
                   log.debug(s"History.append postappend length : ${storage.height}")
@@ -212,7 +214,7 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
 
       log.debug("History : Comparing begins!")
 
-      val compareSize = syncInfo.lastBlocks.reverse.zipAll(other.lastBlocks.reverse, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
+      val compareSize = syncInfo.lastBlocks.zipAll(other.lastBlocks, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
       if (compareSize == 0)
          HistoryComparisonResult.Equal
       else findComparisonResultInSyncInfo(syncInfo, other)
@@ -272,6 +274,7 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
 }
 
 object AeneasHistory extends ScorexLogging {
+
    def emptyHistory(minerSettings: SimpleMiningSettings) = {
       new AeneasHistory(null, Seq(), minerSettings)
    }
@@ -296,6 +299,9 @@ object AeneasHistory extends ScorexLogging {
             blockStorage.close()
          }
       })
+
+      val storage = new AeneasHistoryStorage(blockStorage, settings)
+      log.debug(s"AeneasHistoryStorage height on generating state : ${storage.height}")
 
       val validators = Seq(new DifficultyValidator(settings, storage))
 

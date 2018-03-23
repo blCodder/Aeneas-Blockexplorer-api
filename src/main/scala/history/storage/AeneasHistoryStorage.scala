@@ -71,7 +71,7 @@ class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) 
    }
 
    def update(b: AeneasBlock, diff: Option[(BigInt, Long)], isBest: Boolean) : Option[PowBlock] = {
-      log.debug(s"History.update : Write new best=$isBest block ${b.encodedId}")
+      log.debug(s"History.update : Write new ${if (isBest) "the best" else ",but not the best"} block ${b.encodedId}")
       val typeByte = b match {
          case _: PowBlock =>
             PowBlock.ModifierTypeId

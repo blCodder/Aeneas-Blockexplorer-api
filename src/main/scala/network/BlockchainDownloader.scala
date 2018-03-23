@@ -119,8 +119,10 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    def receiveStopSignal : Receive = {
       case DataFromPeer(spec, data : String@unchecked, remotePeer) =>
-         if (spec.messageCode == endDownloadSpec.messageCode)
+         if (spec.messageCode == endDownloadSpec.messageCode) {
             self ! Idle
+            viewHolderRef ! DownloadEnded(historyReaderOpt)
+         }
    }
 
    def handleIdleSignal : Receive = {
@@ -217,5 +219,5 @@ object BlockchainDownloader {
 
    case object Idle extends DownloaderEvent
 
-   case object DownloadEnded extends DownloaderEvent
+   case class DownloadEnded(hisReader : Option[AeneasHistory]) extends DownloaderEvent
 }

@@ -16,6 +16,9 @@
 
 package viewholder
 
+import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.actor.ActorRef
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool, SimpleBoxTransactionSerializer}
@@ -24,16 +27,17 @@ import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAli
 import history.sync.VerySimpleSyncInfo
 import mining.Miner.{MinerAlive, StartMining, StopMining}
 import network.BlockchainDownloader.DownloadEnded
-import scorex.core.NodeViewHolder.NodeViewHolderEvent
+import scorex.core.NodeViewHolder._
 import scorex.core.serialization.Serializer
 import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.Transaction
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519Companion
+import scorex.core.utils.ScorexLogging
 import scorex.core.{ModifierTypeId, NodeViewHolder, NodeViewModifier}
 import settings.SimpleMiningSettings
 import state.SimpleMininalState
-import viewholder.AeneasNodeViewHolder.{NodeViewEvent, NotifySubscribersOnRestore}
+import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent, NotifySubscribersOnRestore}
 import wallet.AeneasWallet
 
 import scala.collection.mutable
@@ -45,48 +49,55 @@ import scala.collection.mutable
   */
 //noinspection ScalaStyle
 class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMiningSettings)
-  extends NodeViewHolder[PublicKey25519Proposition, SimpleBoxTransaction, AeneasBlock] {
+  extends NodeViewHolder[PublicKey25519Proposition, SimpleBoxTransaction, AeneasBlock]
+   with ScorexLogging {
    override type SI = VerySimpleSyncInfo
    override type HIS = AeneasHistory
    override type MS = SimpleMininalState
    override type VL = AeneasWallet
    override type MP = SimpleBoxTransactionMemPool
 
-   private var synchronizerStatus = false
-   private var minerStatus = false
+   private lazy val synchronizerStatus : AtomicBoolean = new AtomicBoolean(false)
+   private lazy val minerStatus : AtomicBoolean = new AtomicBoolean(false)
+   private lazy val minerActivation : AtomicBoolean = new AtomicBoolean(false)
    /**
      * Restore a local view during a node startup.
      * If no any stored view or other peers in network found, None is to be returned.
      *
      * If it is the first launch, history should be empty and
-     * specific signal will be send to sychronizer.
+     * specific signal will be send to synchronizer.
      */
    override def restoreState(): Option[(HIS, MS, VL, MP)] = {
-      log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
-      if (AeneasWallet.exists(settings) && AeneasWallet.nonEmpty(settings)) {
-         val history =  AeneasHistory.readOrGenerate(settings, minerSettings)
+      val genesisEnv = Option(System.getenv("AENEAS_GENESIS"))
+      val genesisFile = new File(genesisEnv.getOrElse(""))
+      minerActivation.set(false)
+      if (genesisFile.exists() && genesisEnv.isDefined) {
+         genesisFile.createNewFile()
+         log.debug(s"Genesis file exists : ${genesisFile.exists}")
+         None
+      } else {
+         AeneasWallet.walletFile(settings)
+         log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
+         val history = AeneasHistory.readOrGenerate(settings, minerSettings)
          val minState = SimpleMininalState.readOrGenerate(settings)
-         val wallet =   AeneasWallet.readOrGenerate(settings, 1)
-         val memPool =  SimpleBoxTransactionMemPool.emptyPool
+         val wallet = AeneasWallet.readOrGenerate(settings, 1)
+         val memPool = SimpleBoxTransactionMemPool.emptyPool
 
          // if history exists, it will compare blockchains through the SyncInfo.
-         history match {
-            case content =>
-               Some(content, minState, wallet, memPool)
-            // otherwise, it requests the history donwload and send message
-            case _ =>
-               self ! NotifySubscribersOnRestore
-               Some(AeneasHistory.emptyHistory(minerSettings), minState, wallet, memPool)
+         // otherwise, it should request the history downloading process and send message.
+         if (history.height <= 0) {
+            self ! NotifySubscribersOnRestore
          }
-
-      } else None
+         log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
+         Some(history, minState, wallet, memPool)
+      }
    }
 
    /**
      * Hard-coded initial view all the honest nodes in a network are making progress from.
      */
    override protected def genesisState: (HIS, MS, VL, MP) = {
-      log.debug("start genesisState")
+      log.debug("AeneasNodeViewHolder : Genesis – started")
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
       val genesisBlock = new PowBlock(minerSettings.GenesisParentId,
          System.currentTimeMillis(),
@@ -106,6 +117,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       val mininalState = SimpleMininalState.genesisState(settings, Seq(genesisBlock))
       val wallet = AeneasWallet.genesisWallet(settings, Seq(genesisBlock))
 
+      minerActivation.compareAndSet(false, true)
+
+      log.debug(s"AeneasNodeViewHolder : Genesis is ended, miner alive : ${minerStatus.get()}, " +
+                s"genesis miner: ${minerActivation.get()} ")
+
       (history, mininalState, wallet, SimpleBoxTransactionMemPool.emptyPool)
    }
 
@@ -115,14 +131,14 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    override val modifierSerializers: Map[ModifierTypeId, Serializer[_ <: NodeViewModifier]] =
       Map(PowBlock.ModifierTypeId -> PowBlockCompanion,
       Transaction.ModifierTypeId -> SimpleBoxTransactionSerializer)
-   /**
-     *
-     */
+
    override val networkChunkSize: Int = settings.network.networkChunkSize
 
-   private val aeneasSubscribers = mutable.Map[AeneasNodeViewHolder.NodeViewEvent.Value, Seq[ActorRef]]()
+   private var aeneasSubscribers = mutable.Map[AeneasNodeViewHolder.NodeViewEvent.Value, Seq[ActorRef]]()
 
    protected def notifyAeneasSubscribers[E <: NodeViewHolderEvent](eventType: NodeViewEvent.Value, signal: E): Unit = {
+      log.debug(s"Aeneas notify was called with signal ${signal.toString}")
+      val filtered = aeneasSubscribers.getOrElse(eventType, Seq())
       aeneasSubscribers.getOrElse(eventType, Seq()).foreach(_ ! signal)
    }
 
@@ -132,7 +148,8 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      * @see Miner companion object for more signals.
      */
    protected def handleAeneasSubscribe: Receive = {
-      case AeneasNodeViewHolder.AeneasSubscribe(events) =>
+      case AeneasSubscribe(events) =>
+         log.debug(s"Registered ${events.size} events")
          events.foreach { evt =>
             val current = aeneasSubscribers.getOrElse(evt, Seq())
             aeneasSubscribers.put(evt, current :+ sender())
@@ -145,16 +162,28 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def onRestoreMessage : Receive = {
       case NotifySubscribersOnRestore =>
-         if (synchronizerStatus && minerStatus) {
+         log.debug(s"OnRestore message was received with " +
+            s"sync : ${synchronizerStatus.get()} && " +
+            s"miner : ${minerStatus.get()}")
+         if (synchronizerStatus.get() && minerStatus.get()) {
             notifyAeneasSubscribers(NodeViewEvent.PreStartDownloadRequest, PreStartDownloadRequest)
             notifyAeneasSubscribers(NodeViewEvent.StopMining, StopMining)
+            notifySubscribers(EventType.HistoryChanged, ChangedHistory(history()))
+            synchronizerStatus.compareAndSet(true, false)
+            minerStatus.compareAndSet(true, false)
          }
       case _ =>
    }
 
    protected def onDownloadEnded : Receive = {
-      case DownloadEnded =>
-         notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
+      case DownloadEnded(hisReader) =>
+         hisReader match {
+           case Some(reader) =>
+              updateNodeView(hisReader, None, None, None)
+              notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
+           case None =>
+               self ! NotifySubscribersOnRestore
+         }
    }
 
    /**
@@ -164,8 +193,12 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def onSynchronizerAlive : Receive = {
       case SynchronizerAlive =>
-         synchronizerStatus = true
-         self ! NotifySubscribersOnRestore
+         log.debug("AeneasViewHolder : Synchronizer is alive")
+         synchronizerStatus.compareAndSet(false, true)
+         if (!minerActivation.get() || !minerStatus.get()) {
+            log.debug("AeneasViewHolder : Synchronizer will send restore message")
+            self ! NotifySubscribersOnRestore
+         }
    }
 
    /**
@@ -175,20 +208,35 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def onMinerAlive : Receive = {
       case MinerAlive =>
-         minerStatus = true
-         self ! NotifySubscribersOnRestore
+         log.debug("AeneasViewHolder : Miner is alive")
+         minerStatus.compareAndSet(false, true)
+         if (minerActivation.get()) {
+            log.debug(s"AeneasViewHolder : miner is alive with genesis state")
+            notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
+         }
+         else if (!synchronizerStatus.get())
+            self ! NotifySubscribersOnRestore
+   }
+
+   override protected def getCurrentInfo: Receive = {
+      case GetDataFromCurrentView(f) =>
+         log.debug("AeneasViewHolder: Data from Miner was received")
+         sender() ! f(CurrentView(history(), minimalState(), vault(), memoryPool()))
+         log.debug("AeneasViewHolder: CurrentView was send back to Miner")
    }
 
    override def receive: Receive =
-      super.handleSubscribe orElse
+      onSynchronizerAlive orElse
+         onMinerAlive orElse
+         handleAeneasSubscribe orElse
+         onRestoreMessage orElse
+         getCurrentInfo orElse
+         onDownloadEnded orElse
+         super.processLocallyGeneratedModifiers orElse
+         super.handleSubscribe orElse
          super.compareViews orElse
          super.processRemoteModifiers orElse
-         super.processLocallyGeneratedModifiers orElse
-         super.getCurrentInfo orElse
-         super.getNodeViewChanges orElse
-         handleAeneasSubscribe orElse
-         onSynchronizerAlive orElse
-         onMinerAlive orElse {
+         super.getNodeViewChanges orElse {
          case a: Any => log.error("Strange input: " + a)
       }
 }
@@ -207,4 +255,5 @@ object AeneasNodeViewHolder {
 
    case object NotifySubscribersOnRestore
 
+   case object ActivateMining
 }
