@@ -274,14 +274,24 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
 }
 
 object AeneasHistory extends ScorexLogging {
+
+   def emptyHistory(minerSettings: SimpleMiningSettings) = {
+      new AeneasHistory(null, Seq(), minerSettings)
+   }
+
    def readOrGenerate(settings: ScorexSettings, minerSettings: SimpleMiningSettings): AeneasHistory = {
       readOrGenerate(settings.dataDir, settings.logDir, minerSettings)
    }
 
    def readOrGenerate(dataDir: File, logDir: File, settings: SimpleMiningSettings): AeneasHistory = {
+      log.info(s"AeneasHistory : generation begins at ${dataDir.getAbsolutePath}")
       val iFile = new File(s"${dataDir.getAbsolutePath}/blocks")
       iFile.mkdirs()
       val blockStorage = new LSMStore(iFile, maxJournalEntryCount = 10000)
+
+      val storage = new AeneasHistoryStorage(blockStorage, settings)
+      if (storage.height == 0)
+         None
 
       Runtime.getRuntime.addShutdownHook(new Thread() {
          override def run(): Unit = {

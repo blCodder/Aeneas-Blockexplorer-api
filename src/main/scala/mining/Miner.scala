@@ -196,6 +196,7 @@ object Miner extends App with ScorexLogging {
       val f: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] => MiningInfo = {
          view: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] =>
             log.debug(s"Miner.requiredData : work begins")
+
             val bestBlock = view.history.storage.bestBlock
             val difficulty = view.history.storage.getPoWDifficulty(None)
             val pubkey = if (view.vault.publicKeys.nonEmpty) {

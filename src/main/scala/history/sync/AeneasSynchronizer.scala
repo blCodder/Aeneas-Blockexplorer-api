@@ -155,6 +155,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       case DataFromPeer(spec, request : String@unchecked, remotePeer) =>
          if (spec.messageCode == chainSpec.messageCode && request.equals("blockchain")) {
             log.debug(s"AeneasSynchronizer : Message received from ${remotePeer.socketAddress.toString} : $request")
+
             historyReaderOpt match {
                // TODO: be sure that we can cast traited object to AeneasHistory.
                case Some(history) =>
