@@ -50,7 +50,7 @@ class Miner(viewHolderRef: ActorRef,
             storage : AeneasHistoryStorage) extends Actor with ScorexLogging {
 
    import Miner._
-
+   private var clientInformatorRef : Option[ActorRef] = None
    private var cancellableOpt: Option[Cancellable] = None
    private val mining = new AtomicBoolean(false)
 //   private var mining = false
@@ -136,12 +136,15 @@ class Miner(viewHolderRef: ActorRef,
       case b: PowBlock =>
          cancellableOpt.foreach(_.cancel())
          viewHolderRef ! LocallyGeneratedModifier[AeneasBlock](b)
-
+         clientInformatorRef.foreach(_ ! b)
       case StopMining =>
          log.debug(s"Pre-stop miner state : ${mining.toString}")
          mining.set(false)
          log.debug(s"Miner : Mining was disabled")
 
+      case UiInformatorSubscribe =>
+         if (clientInformatorRef.isEmpty)
+            clientInformatorRef = Option(sender())
       case a: Any =>
          log.warn(s"Strange input: $a")
    }
@@ -154,6 +157,8 @@ object Miner extends App with ScorexLogging {
    case object MinerAlive extends NodeViewHolderEvent
 
    case object StartMining extends MinerEvent
+
+   case object UiInformatorSubscribe
 
    case object StopMining extends MinerEvent
 

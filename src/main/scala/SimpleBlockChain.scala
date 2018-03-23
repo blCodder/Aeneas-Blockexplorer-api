@@ -1,4 +1,11 @@
-import akka.actor.{ActorRef, ActorSystem, Props}
+import java.io.File
+import java.util.concurrent.Executors
+
+import akka.actor.{ActorRef, Props, ActorSystem}
+import akka.http.scaladsl.Http
+import akka.stream.ActorMaterializer
+import api.WsServerRunner
+import api.account.SignUpApi
 import block.AeneasBlock
 import com.typesafe.config.ConfigFactory
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
@@ -34,10 +41,10 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
    type HIS = AeneasHistory
    type MPOOL = SimpleBoxTransactionMemPool
 
-   private val simpleSettings : SimpleSettings = loadSettings.simpleSettings
+   private val simpleSettings : AeneasSettings = loadSettings.simpleSettings
 
    // Note : NEVER NEVER forget to mark implicit as LAZY!
-   override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
+   override implicit lazy val settings: ScorexSettings = AeneasSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
    log.info(s"SimpleBloсkchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
@@ -64,6 +71,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
          new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL] (networkControllerRef,
             nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
 
+   new WsServerRunner(miner, simpleSettings).run
    /**
      * API description in openapi format in YAML or JSON
      */

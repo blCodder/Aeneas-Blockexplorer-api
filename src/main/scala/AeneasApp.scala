@@ -67,7 +67,7 @@ trait AeneasApp extends ScorexLogging {
 
    lazy val combinedRoute = CompositeHttpService(actorSystem, apiRoutes, settings.restApi, swaggerConfig).compositeRoute
    lazy val messagesHandler: MessageHandler = MessageHandler(basicSpecs ++ additionalMessageSpecs)
-
+  
    def run(): Unit = {
       require(settings.network.agentName.length <= ApplicationNameLimit)
 
@@ -85,7 +85,7 @@ trait AeneasApp extends ScorexLogging {
             synchronized {
                log.info("Stopping network services")
                if (settings.network.upnpEnabled) upnp.deletePort(settings.network.bindAddress.getPort)
-               networkControllerRef ! NetworkController.ReceivableMessages.ShutdownNetwork
+                  networkControllerRef ! NetworkController.ReceivableMessages.ShutdownNetwork
 
                log.info("Stopping actors (incl. block generator)")
                actorSystem.terminate().onComplete { _ =>
