@@ -1,8 +1,9 @@
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
-import scorex.core.{NodeViewHolder, PersistentNodeViewModifier}
+import network.AeneasNetwork
 import scorex.core.api.http.{ApiRoute, CompositeHttpService}
+import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
 import scorex.core.network.{NetworkController, UPnP}
 import scorex.core.network.message._
 import scorex.core.network.peer.PeerManager
@@ -12,7 +13,6 @@ import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.utils.{NetworkTimeProvider, ScorexLogging}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
 
 /**
   * File was copied from scorex.core.app.Application.scala and extended.
@@ -35,11 +35,15 @@ trait AeneasApp extends ScorexLogging {
 
    protected implicit lazy val actorSystem = ActorSystem(settings.network.agentName)
 
+   val nodeViewHolderRef: ActorRef
+   val nodeViewSynchronizer: ActorRef
+   val localInterface: ActorRef
+
    // network initialization.
    val timeProvider = new NetworkTimeProvider(settings.ntp)
    val peerManagerRef: ActorRef = actorSystem.actorOf(Props(new PeerManager(settings, timeProvider)))
 
-   val nProps = Props(new NetworkController(settings.network, messagesHandler, upnp, peerManagerRef, timeProvider))
+   val nProps = Props(new AeneasNetwork(settings.network, messagesHandler, upnp, peerManagerRef, timeProvider))
    val networkControllerRef: ActorRef = actorSystem.actorOf(nProps, "networkController")
 
    // p2p
@@ -63,11 +67,7 @@ trait AeneasApp extends ScorexLogging {
 
    lazy val combinedRoute = CompositeHttpService(actorSystem, apiRoutes, settings.restApi, swaggerConfig).compositeRoute
    lazy val messagesHandler: MessageHandler = MessageHandler(basicSpecs ++ additionalMessageSpecs)
-
-   val nodeViewHolderRef: ActorRef
-   val nodeViewSynchronizer: ActorRef
-   val localInterface: ActorRef
-
+  
    def run(): Unit = {
       require(settings.network.agentName.length <= ApplicationNameLimit)
 
@@ -85,7 +85,7 @@ trait AeneasApp extends ScorexLogging {
             synchronized {
                log.info("Stopping network services")
                if (settings.network.upnpEnabled) upnp.deletePort(settings.network.bindAddress.getPort)
-               networkControllerRef ! NetworkController.ShutdownNetwork
+                  networkControllerRef ! NetworkController.ReceivableMessages.ShutdownNetwork
 
                log.info("Stopping actors (incl. block generator)")
                actorSystem.terminate().onComplete { _ =>

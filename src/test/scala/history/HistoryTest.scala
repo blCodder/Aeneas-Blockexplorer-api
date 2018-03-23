@@ -1,7 +1,7 @@
 package history
 
 import block.{PowBlock, PowBlockCompanion}
-import history.storage.SimpleHistoryStorage
+import history.storage.AeneasHistoryStorage
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
@@ -20,8 +20,8 @@ class HistoryTest extends FunSuite with Matchers {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(
@@ -93,8 +93,8 @@ class HistoryTest extends FunSuite with Matchers {
       val settings = AeneasSettings.read()
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
-      val storage = new SimpleHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(
@@ -163,8 +163,8 @@ class HistoryTest extends FunSuite with Matchers {
       // we need to create custom history storage because validators fails our blocks appending.
       val testFile = TempDbHelper.mkdir
       val store = new LSMStore(testFile, maxJournalEntryCount = 100)
-      val storage = new SimpleHistoryStorage(store, settings.miningSettings)
-      var history = new SimpleHistory(storage, Seq(), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(store, settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
 
       val block1 = new PowBlock(

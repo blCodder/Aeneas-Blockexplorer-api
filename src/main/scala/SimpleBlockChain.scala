@@ -1,41 +1,36 @@
-import java.io.File
-import java.util.concurrent.Executors
-
-import akka.actor.{ActorRef, Props}
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
+import akka.actor.{ActorRef, ActorSystem, Props}
 import api.WsServerRunner
-import api.account.SignUpApi
 import block.AeneasBlock
+import com.typesafe.config.ConfigFactory
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
-import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
-import history.SimpleHistory
-import io.iohk.iodb.LSMStore
+import history.AeneasHistory
+import history.sync.{AeneasSynchronizer, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
 import mining.Miner
+import network.BlockchainDownloader
 import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
-import scorex.core.app.Application
-import scorex.core.network.NodeViewSynchronizer
 import scorex.core.network.message.MessageSpec
+import scorex.core.serialization.SerializerRegistry
+import scorex.core.serialization.SerializerRegistry.SerializerRecord
 import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import settings.{AeneasSettings, SimpleLocalInterface}
+import viewholder.AeneasNodeViewHolder
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
-import scala.util.{Failure, Success}
+import scala.language.postfixOps
 
 /**
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain(loadSettings: LoadSettings) extends Application with ScorexLogging {
+class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
-   override type NVHT = VerySimpleNodeViewHolder
+   override type NVHT = AeneasNodeViewHolder
    type SI = VerySimpleSyncInfo
-   type HIS = SimpleHistory
+   type HIS = AeneasHistory
    type MPOOL = SimpleBoxTransactionMemPool
 
    private val simpleSettings : AeneasSettings = loadSettings.simpleSettings
@@ -43,22 +38,30 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    // Note : NEVER NEVER forget to mark implicit as LAZY!
    override implicit lazy val settings: ScorexSettings = AeneasSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
-   log.info(s"SimpleBlokchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
+   log.info(s"SimpleBloсkchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
-   override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new VerySimpleNodeViewHolder(settings, simpleSettings.miningSettings)))
+   implicit val serializerReg: SerializerRegistry = SerializerRegistry(Seq(SerializerRecord(SimpleBoxTransaction.simpleBoxEncoder)))
+
+   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActor)
+
+   override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
 
    override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 
    private val miner = actorSystem.actorOf(Props(new Miner(nodeViewHolderRef,
-      simpleSettings.miningSettings, SimpleHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
+      simpleSettings.miningSettings, AeneasHistory.readOrGenerate(settings, simpleSettings.miningSettings).storage)))
 
    override val localInterface: ActorRef =
    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
 
+   val downloaderActor : ActorRef =
+      actorSystem.actorOf(Props(
+         new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network)))
+
    override val nodeViewSynchronizer: ActorRef =
       actorSystem.actorOf(Props(
-         new NodeViewSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL]
-         (networkControllerRef, nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider)))
+         new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL] (networkControllerRef,
+            nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
 
    new WsServerRunner(miner, simpleSettings).run
    /**
@@ -74,8 +77,11 @@ object SimpleBlockChain {
    }
 }
 
-case class LoadSettings() {
-  val simpleSettings : AeneasSettings = AeneasSettings.read()
+case class LoadSettings() extends ScorexLogging {
+   val simpleSettings : AeneasSettings = AeneasSettings.read()
+   private val root = ConfigFactory.load()
+   val aeneasActor = root.getConfig("Aeneas")
+   log.debug(aeneasActor.toString)
   // set logging path:
   sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
 }

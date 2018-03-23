@@ -3,9 +3,10 @@ package history.sync
 import block.PowBlock
 import com.google.common.primitives.Longs
 import scorex.core.consensus.SyncInfo
+import scorex.core.mainviews.NodeViewModifier
 import scorex.core.network.message.SyncInfoMessageSpec
 import scorex.core.serialization.Serializer
-import scorex.core.{ModifierId, ModifierTypeId, NodeViewModifier}
+import scorex.core.{ModifierId, ModifierTypeId}
 
 import scala.util.Try
 

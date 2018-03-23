@@ -1,63 +1,94 @@
+/*
+ * Copyright 2018, Aeneas Platform.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package mining
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{Actor, ActorRef}
 import block.{AeneasBlock, PowBlock, PowBlockCompanion, PowBlockHeader}
 import commons.SimpleBoxTransactionMemPool
-import history.SimpleHistory
-import history.storage.SimpleHistoryStorage
-import scorex.core.LocalInterface.LocallyGeneratedModifier
-import scorex.core.NodeViewHolder.{CurrentView, GetDataFromCurrentView}
+import history.AeneasHistory
+import history.storage.AeneasHistoryStorage
+import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
 import scorex.core.block.Block.BlockId
+import scorex.core.mainviews.NodeViewHolder.CurrentView
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
+import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.hash.Blake2b256
 import settings.SimpleMiningSettings
 import state.SimpleMininalState
+import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent}
 import wallet.AeneasWallet
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.util.Random
+
 /**
   * @author is Alex Syrotenko (@flystyle)
   *         Created on 30.01.18.
   */
 class Miner(viewHolderRef: ActorRef,
             settings: SimpleMiningSettings,
-            storage : SimpleHistoryStorage) extends Actor with ScorexLogging {
+            storage : AeneasHistoryStorage) extends Actor with ScorexLogging {
 
    import Miner._
    private var clientInformatorRef : Option[ActorRef] = None
    private var cancellableOpt: Option[Cancellable] = None
-   private var mining = false
-   private val requriredData = Miner.getRequiredData
+   private val mining = new AtomicBoolean(false)
+//   private var mining = false
 
 
    override def preStart(): Unit = {
-      //todo: check for a last block (for what?)
-      if (settings.offlineGen) {
-         context.system.scheduler.scheduleOnce(1.second)(self ! StartMining)
-      }
+      viewHolderRef ! AeneasSubscribe(Seq(NodeViewEvent.StartMining, NodeViewEvent.StopMining))
+      viewHolderRef ! MinerAlive
    }
 
    //noinspection ScalaStyle
    override def receive: Receive = {
       case StartMining =>
+         mining.compareAndSet(false, true)
+         log.debug(s"Miner : Mining was ${if (!mining.get()) "not"} enabled")
          if (settings.blockGenDelay >= 1.minute) {
             log.info("Mining is disabled for blockGenerationDelay >= 1 minute")
          } else {
-            mining = true
-            self ! MineBlock
+            if (mining.get()) {
+               log.debug("Mining should begins")
+               self ! MineBlock
+            }
+            else StartMining
          }
 
       case MineBlock =>
-         if (mining) {
+         if (mining.get()) {
             log.info("Mining of previous PoW block stopped")
             cancellableOpt.forall(_.cancel())
-
-            context.system.scheduler.scheduleOnce(50.millis) {
-               if (cancellableOpt.forall(_.status.isCancelled)) viewHolderRef ! getRequiredData
+            log.debug(s"MineBlock : Cancellable count : ${cancellableOpt.size}")
+            // TODO: See here!!
+            context.system.scheduler.scheduleOnce(250.millis) {
+               log.debug(s"MineBlock : is in scheduler state")
+               if (cancellableOpt.forall(_.status.isCancelled) || cancellableOpt.isEmpty) {
+                  log.debug(s"MineBlock : it sends required data")
+                  val dataFromCurrentView = getRequiredData
+                  viewHolderRef ! dataFromCurrentView
+               }
                else self ! StartMining
             }
          }
@@ -107,7 +138,9 @@ class Miner(viewHolderRef: ActorRef,
          viewHolderRef ! LocallyGeneratedModifier[AeneasBlock](b)
          clientInformatorRef.foreach(_ ! b)
       case StopMining =>
-         mining = false
+         log.debug(s"Pre-stop miner state : ${mining.toString}")
+         mining.set(false)
+         log.debug(s"Miner : Mining was disabled")
 
       case UiInformatorSubscribe =>
          if (clientInformatorRef.isEmpty)
@@ -119,15 +152,19 @@ class Miner(viewHolderRef: ActorRef,
 
 object Miner extends App with ScorexLogging {
 
+   sealed trait MinerEvent extends NodeViewHolderEvent
+
+   case object MinerAlive extends NodeViewHolderEvent
+
+   case object StartMining extends MinerEvent
+
    case object UiInformatorSubscribe
 
-   case object StartMining
+   case object StopMining extends MinerEvent
 
-   case object StopMining
+   case object MineBlock extends MinerEvent
 
-   case object MineBlock
-
-   case class MiningInfo(powDifficulty: BigInt, bestPowBlock: PowBlock, pubkey: PublicKey25519Proposition)
+   case class MiningInfo(powDifficulty: BigInt, bestPowBlock: PowBlock, pubkey: PublicKey25519Proposition) extends MinerEvent
 
    def powIteration(parentId: BlockId,
                     brothers: Seq[PowBlockHeader],
@@ -135,7 +172,7 @@ object Miner extends App with ScorexLogging {
                     settings: SimpleMiningSettings,
                     proposition: PublicKey25519Proposition,
                     blockGenerationDelay: FiniteDuration,
-                    storage : SimpleHistoryStorage
+                    storage : AeneasHistoryStorage
                    ): Option[PowBlock] = {
       val rand = Random.nextLong()
       val nonce = if (rand > 0) rand else rand * -1
@@ -158,13 +195,14 @@ object Miner extends App with ScorexLogging {
       foundBlock
    }
 
-   def getRequiredData: GetDataFromCurrentView[SimpleHistory,
+   def getRequiredData: GetDataFromCurrentView[AeneasHistory,
      SimpleMininalState,
      AeneasWallet,
      SimpleBoxTransactionMemPool,
      MiningInfo] = {
-      val f: CurrentView[SimpleHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] => MiningInfo = {
-         view: CurrentView[SimpleHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] =>
+      val f: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] => MiningInfo = {
+         view: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] =>
+            log.debug(s"Miner.requiredData : work begins")
 
             val bestBlock = view.history.storage.bestBlock
             val difficulty = view.history.storage.getPoWDifficulty(None)
@@ -176,7 +214,7 @@ object Miner extends App with ScorexLogging {
             log.info(MiningInfo(difficulty, bestBlock, pubkey).toString)
             MiningInfo(difficulty, bestBlock, pubkey)
       }
-      GetDataFromCurrentView[SimpleHistory,
+      GetDataFromCurrentView[AeneasHistory,
         SimpleMininalState,
         AeneasWallet,
         SimpleBoxTransactionMemPool,

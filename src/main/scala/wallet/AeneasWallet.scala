@@ -114,13 +114,12 @@ case class AeneasWallet(seed: ByteStr, store: LSMStore)
 
 }
 
-object AeneasWallet {
+object AeneasWallet extends ScorexLogging {
 
    def walletFile(settings: ScorexSettings): File = {
-      if (!settings.wallet.walletDir.exists()) settings.wallet.walletDir.mkdirs()
-
+      if (!settings.wallet.walletDir.exists())
+         settings.wallet.walletDir.mkdirs()
       new File(s"${settings.wallet.walletDir.getAbsolutePath}") //TODO WTF?????
-
    }
 
    def exists(settings: ScorexSettings): Boolean = walletFile(settings).exists()
@@ -130,6 +129,11 @@ object AeneasWallet {
    def readOrGenerate(settings: ScorexSettings, seed: ByteStr): AeneasWallet = {
       val wFile = settings.wallet.walletDir
       if (wFile.exists) settings.wallet.walletDir.mkdirs
+      else {
+         settings.wallet.walletDir.getParentFile.mkdirs
+         settings.wallet.walletDir.mkdirs
+         settings.wallet.walletDir.createNewFile
+      }
       val boxesStorage = new LSMStore(wFile, maxJournalEntryCount = 10000)
       sys.addShutdownHook{
         boxesStorage.close()
