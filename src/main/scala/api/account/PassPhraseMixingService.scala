@@ -1,5 +1,7 @@
 package api.account
 
+import java.io.File
+
 import settings.AeneasSettings
 
 import scala.annotation.tailrec
@@ -18,10 +20,12 @@ class PassPhraseMixingService(aeneasSettings: AeneasSettings) {
     */
   def generateRandomPassPhrase ():List[String] = {
     val size = aeneasSettings.seedSettings.passPhraseSize
+    val file = aeneasSettings.seedSettings.file
+    val fileDictSrc = Option(new File(file)).filter(_.exists()).getOrElse(new File(Option (getClass.getResource("/"+file)).map(_.getPath).getOrElse("")))
     val words = Source
-      .fromResource(aeneasSettings.seedSettings.file)
+      .fromFile(fileDictSrc, "UTF-8")
       .getLines().toSeq.head.split("\\,")
-    randomIntArray(List.empty, size, words.size).map(words(_).toLowerCase)
+    randomIntArray(List.empty, size, words.size).map(words(_).toLowerCase)//TODO return Try
   }
 
   @tailrec
