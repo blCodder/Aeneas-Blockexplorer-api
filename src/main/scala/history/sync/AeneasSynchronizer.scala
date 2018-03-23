@@ -16,22 +16,25 @@
 
 package history.sync
 
+import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
+import akka.pattern.ask
+import akka.util.Timeout
 import block.PowBlock
 import history.AeneasHistory
-import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SendMessageSpec, SynchronizerAlive}
+import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, RequestPeerManager, SendMessageSpec, SynchronizerAlive}
 import network.BlockchainDownloader.SendBlockRequest
 import network.messagespec.{FullBlockChainRequestSpec, PoWBlockMessageSpec}
 import scorex.core.NodeViewHolder.{GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
-import scorex.core.app.Version
 import scorex.core.block.Block.BlockId
 import scorex.core.consensus.{HistoryReader, SyncInfo}
 import scorex.core.network.NetworkController.{DataFromPeer, SendToNetwork}
 import scorex.core.network._
 import scorex.core.network.message.{Message, MessageSpec, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network.peer.PeerManager
+import scorex.core.network.peer.PeerManager.{AddOrUpdatePeer, GetConnectedPeers, KnownPeers}
 import scorex.core.settings.NetworkSettings
 import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.transaction.{MempoolReader, Transaction}
@@ -40,7 +43,8 @@ import scorex.core.{ModifierTypeId, NodeViewHolder, PersistentNodeViewModifier}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.Await
+import scala.concurrent.duration.{FiniteDuration, _}
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -65,6 +69,8 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
 
    val powBlockMessageSpec = new PoWBlockMessageSpec
    val chainSpec = new FullBlockChainRequestSpec
+   var peerManager : ActorRef = ActorRef.noSender
+   implicit lazy val timeout = new Timeout(5.second)
 
    override def preStart(): Unit = {
       //register as a handler for synchronization-specific types of messages
@@ -101,8 +107,11 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       viewHolderRef ! GetNodeViewChanges(history = true, state = true, vault = false, mempool = true)
 
       statusTracker.scheduleSendSyncInfo()
-
       downloader ! SendMessageSpec(requestModifierSpec)
+
+      val peerManagerRequest = ask(networkControllerRef, RequestPeerManager).mapTo[ActorRef]
+      peerManager = Await.result(peerManagerRequest, 2.second)
+
       viewHolderRef ! SynchronizerAlive
 
       log.debug(s"Aeneas Events was registered : ${aeneasEvents.length}")
@@ -117,7 +126,23 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       case PreStartDownloadRequest =>
          val msg = Message(chainSpec, Right("blockchain"), None)
          log.debug(s"Synchronizer : PreStartDownloadRequest was coming with message : ${msg.data.get}.")
-         networkControllerRef ! SendToNetwork(msg, Broadcast)
+
+         Thread.sleep(5000)
+
+         val peersRequestFuture = ask(peerManager, GetConnectedPeers).mapTo[Seq[Handshake]]
+         val peersHandshakes = Await.result(peersRequestFuture, timeout.duration)
+         log.debug(s"Synchronizer : Available peer handshakes : $peersHandshakes")
+         peersHandshakes.foreach(shake => log.debug(s"Handshake : ${shake.toString}"))
+
+//         val peers = peersHandshakes.map(shake => ConnectedPeer(shake.declaredAddress.get, self, Outgoing, shake))
+//         log.debug(s"Synchronizer : Available peers size : ${peers.size}")
+
+         val handshake = peersHandshakes.head
+         log.debug(s"Known peers : ${networkSettings.toString}")
+         val knownPeer = networkSettings.knownPeers.head
+         val peer = ConnectedPeer(knownPeer, self, Outgoing, handshake)
+
+         networkControllerRef ! SendToNetwork(msg, SendToPeer(peer))
    }
 
    /**
@@ -219,4 +244,7 @@ object AeneasSynchronizer {
      * @param spec concrete message spec.
      */
    case class SendMessageSpec(spec: MessageSpec[_]) extends NodeViewHolderEvent
+
+   /** Signal which request peer manager actor reference. */
+   case object RequestPeerManager extends SyncronizerEvent
 }

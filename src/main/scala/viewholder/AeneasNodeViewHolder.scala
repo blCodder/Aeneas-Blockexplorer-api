@@ -138,6 +138,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
 
    protected def notifyAeneasSubscribers[E <: NodeViewHolderEvent](eventType: NodeViewEvent.Value, signal: E): Unit = {
       log.debug(s"Aeneas notify was called with signal ${signal.toString}")
+      val filtered = aeneasSubscribers.getOrElse(eventType, Seq())
       aeneasSubscribers.getOrElse(eventType, Seq()).foreach(_ ! signal)
    }
 
@@ -148,7 +149,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def handleAeneasSubscribe: Receive = {
       case AeneasSubscribe(events) =>
-         log.debug(s"Aeneas subscribtion incoming with size ${events.length}")
+         log.debug(s"Registered ${events.size} events")
          events.foreach { evt =>
             val current = aeneasSubscribers.getOrElse(evt, Seq())
             aeneasSubscribers.put(evt, current :+ sender())
@@ -161,7 +162,9 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def onRestoreMessage : Receive = {
       case NotifySubscribersOnRestore =>
-         log.debug(s"OnRestore message was received with ${synchronizerStatus.get()} && ${minerStatus.get()} statuses")
+         log.debug(s"OnRestore message was received with " +
+            s"sync : ${synchronizerStatus.get()} && " +
+            s"miner : ${minerStatus.get()}")
          if (synchronizerStatus.get() && minerStatus.get()) {
             notifyAeneasSubscribers(NodeViewEvent.PreStartDownloadRequest, PreStartDownloadRequest)
             notifyAeneasSubscribers(NodeViewEvent.StopMining, StopMining)

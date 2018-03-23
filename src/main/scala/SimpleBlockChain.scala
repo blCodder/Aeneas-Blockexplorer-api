@@ -21,7 +21,7 @@ import viewholder.AeneasNodeViewHolder
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain(loadSettings: LoadSettings) extends Application with ScorexLogging {
+class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
@@ -37,7 +37,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends Application with Scor
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
    log.info(s"SimpleBloсkchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
-   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors",loadSettings.aeneasActor)
+   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActor)
 
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
 
