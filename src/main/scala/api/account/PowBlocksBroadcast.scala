@@ -2,15 +2,11 @@ package api.account
 
 import akka.NotUsed
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
-import akka.http.scaladsl.server.Directives.{handleWebSocketMessages, path}
-import akka.http.scaladsl.server.Route
+import akka.stream.scaladsl.{BroadcastHub, Keep, RunnableGraph, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{ActorMaterializer, OverflowStrategy, QueueOfferResult}
-import akka.stream.scaladsl.{BroadcastHub, Flow, Keep, RunnableGraph, Sink, Source, SourceQueueWithComplete}
 import block.PowBlock
 import mining.Miner
-import scorex.core.api.http.ActorHelper
-import scorex.core.utils.ScorexLogging
+import scorex.core.utils.{ActorHelper, ScorexLogging}
 import settings.AeneasSettings
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,7 +15,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @author luger. Created on 13.03.18.
   * @version ${VERSION}
   */
-trait PowBlocksBroadcast extends ScorexLogging with ActorHelper{
+trait PowBlocksBroadcast extends ActorHelper {
   protected def miner:ActorRef
   protected def aeneasSettings: AeneasSettings
   protected implicit def system: ActorSystem
@@ -47,7 +43,6 @@ trait PowBlocksBroadcast extends ScorexLogging with ActorHelper{
 
 
   def publishBlock (pb:PowBlock): Future[QueueOfferResult] = {
-    log.debug(s"pb : $pb")
     producer._1.offer(pb)
   }
 

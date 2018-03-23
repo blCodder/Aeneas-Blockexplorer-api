@@ -1,11 +1,5 @@
-import java.io.File
-import java.util.concurrent.Executors
-
-import akka.actor.{ActorRef, Props, ActorSystem}
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
+import akka.actor.{ActorRef, ActorSystem, Props}
 import api.WsServerRunner
-import api.account.SignUpApi
 import block.AeneasBlock
 import com.typesafe.config.ConfigFactory
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
@@ -20,11 +14,9 @@ import scorex.core.serialization.SerializerRegistry.SerializerRecord
 import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
-import settings.{SimpleLocalInterface, SimpleSettings}
+import settings.{AeneasSettings, SimpleLocalInterface}
 import viewholder.AeneasNodeViewHolder
 
-import scala.concurrent.duration._
-import scala.io.Source
 import scala.language.postfixOps
 
 /**
@@ -86,7 +78,7 @@ object SimpleBlockChain {
 }
 
 case class LoadSettings() extends ScorexLogging {
-   val simpleSettings : SimpleSettings = SimpleSettings.read()
+   val simpleSettings : AeneasSettings = AeneasSettings.read()
    private val root = ConfigFactory.load()
    val aeneasActor = root.getConfig("Aeneas")
    log.debug(aeneasActor.toString)

@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import io.iohk.iodb.LSMStore
+import scorex.core.utils.ScorexLogging
 import settings.AeneasSettings
 
 import scala.concurrent.ExecutionContext
@@ -12,8 +13,8 @@ import scala.concurrent.ExecutionContext
   * @author luger. Created on 01.03.18.
   * @version ${VERSION}
   */
-class SignUpApi(minerVal:ActorRef, aeneasSettingsVal: AeneasSettings, store:LSMStore)(
-  implicit systemVal: ActorSystem, executionContextVal: ExecutionContext) extends SignUpService{
+class SignUpApi(minerVal: ActorRef, aeneasSettingsVal: AeneasSettings, store: LSMStore)(
+  implicit systemVal: ActorSystem, executionContextVal: ExecutionContext) extends SignUpService with ScorexLogging {
 
   override lazy val aeneasSettings: AeneasSettings = aeneasSettingsVal
 

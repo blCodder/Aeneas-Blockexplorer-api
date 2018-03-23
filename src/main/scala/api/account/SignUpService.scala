@@ -2,26 +2,25 @@ package api.account
 
 import akka.NotUsed
 import akka.actor.ActorRef
-import io.circe.parser.decode
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.stream.scaladsl.Flow
 import akka.util.Timeout
 import api.FlowError
-import api.account.SignUpMessagesType.{ReturnPowBlock, SignupMessages}
-import scorex.core.utils.ScorexLogging
-import settings.AeneasSettings
+import api.account.SignUpMessagesType.SignupMessages
 import api.account.circe.Codecs._
 import block.PowBlock
-import scorex.core.api.http.ActorHelper
-
-import scala.concurrent.duration._
-import scala.concurrent.Future
+import io.circe.parser.decode
 import io.circe.syntax._
+import scorex.core.utils.{ActorHelper, ScorexLogging}
+import settings.AeneasSettings
+
+import scala.concurrent.Future
+import scala.concurrent.duration._
 /**
   * @author luger. Created on 19.03.18.
   * @version ${VERSION}
   */
-trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLogging with FlowError{
+trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLogging {
   protected def aeneasSettings:AeneasSettings
   protected def newAccActor:ActorRef
   protected def loginActor:ActorRef
@@ -47,13 +46,11 @@ trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLoggi
               TextMessage.Strict (mapAccountEventsToMessage(x).asJson.noSpaces)
             }
         case event =>
-          log.debug(s"event:$event")
           askActor[NewAccountEvents.NewAccountEvent ](newAccActor, event)
             .map{x =>
               TextMessage.Strict ( mapAccountEventsToMessage(x).asJson.noSpaces)
             }
-      }.
-      via(reportErrorsFlow)
+      }
   }
 
   protected [account] def mapAccountEventsToMessage (event : NewAccountEvents.NewAccountEvent):SignUpMessagesType.SignupMessages  = {

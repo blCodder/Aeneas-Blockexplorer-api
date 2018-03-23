@@ -1,10 +1,8 @@
-organization in ThisBuild := "AeneasPlatform"
-
-name := "Aeneas"
-
-version := "0.0.1-pre-alpha"
-
-scalaVersion := "2.12.4"
+lazy val commonSettings = Seq(
+  organization := "AeneasPlatform",
+  scalaVersion := "2.12.4",
+  version := "0.0.1-alpha"
+)
 
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 
@@ -14,37 +12,43 @@ val typesafeDependencies = Seq (
   "com.typesafe.akka" %% "akka-http" % "10.0.11",
   "com.typesafe.akka" %% "akka-stream" % "2.5.5",
   "com.typesafe.akka" %% "akka-actor"  % "2.5.5",
-  "com.typesafe" % "config" % "1.3.1"
+  "com.typesafe" % "config" % "1.3.1",
+  "com.typesafe.akka" %% "akka-testkit" % "2.5.+" % "test",
+  "com.typesafe.akka" %% "akka-http-testkit" % "10.+" % "test",
 )
 
 val testDependencies = Seq(
-  "org.scalactic" %% "scalactic" % "3.0.3",
+  "org.scalactic" %% "scalactic" % "3.0.3" % "test",
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
+  "org.scalacheck" %% "scalacheck" % "1.13.+",
+  "net.databinder.dispatch" %% "dispatch-core" % "+" % "test",
   "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test",
-  "com.typesafe.akka" %% "akka-http-testkit" % "10.1.0"
 )
 
 val loggingDependencies = Seq(
-  //"tv.cntt" %% "slf4s-api" % "1.7.25",
-  /*Fork of https://github.com/mattroberts297/slf4s to add support for Scala 2.12.*/
-  //"com.typesafe.scala-logging" %% "scala-logging" % "3.+",
   "org.slf4j" % "slf4j-api" % "1.8.0-beta1",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.+",
   "ch.qos.logback" % "logback-core" % "1.3.0-alpha4",
   "ch.qos.logback" % "logback-classic" % "1.3.0-alpha4"
 )
 
+lazy val circeVersion = "0.9.1"
+
 val scorexDependencies = Seq(
-  "org.scorexfoundation" % "scorex-core_2.12" % "master-05508f49",
-  "scorex-testkit" % "scorex-testkit_2.12" % "master-05508f49",
+  "org.scorexfoundation" %% "iodb" % "0.3.2",
   "org.scorexfoundation" %% "scrypto" % "2.+",
-  "org.scorexfoundation" %% "iodb" % "0.3.2"
+  "de.heikoseeberger" %% "akka-http-circe" % "1.19.0"
 )
 
-val circeVersion = "0.9.1"
+lazy val aeneas = Project(id = "aeneas", base = file(s"."))
+   .dependsOn(scorex)
+   .settings(commonSettings: _*)
+
+lazy val scorex = Project(id = "Scorex", base = file("scorex"))
+   .settings(commonSettings: _*)
 
 libraryDependencies in ThisBuild ++= Seq(
   "com.iheart" %% "ficus" % "1.4.2",
-  "org.scorexfoundation" %% "scrypto" % "2.+",
   "io.circe" %% "circe-core" % circeVersion,
   "io.circe" %% "circe-generic" % circeVersion,
   "io.circe" %% "circe-parser" % circeVersion,
