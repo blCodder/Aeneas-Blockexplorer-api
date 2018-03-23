@@ -21,14 +21,17 @@ import block.PowBlock
 import history.AeneasHistory
 import network.BlockchainDownloader.{DownloadEnded, Idle, SendBlockRequest}
 import network.messagespec.{EndDownloadSpec, FullBlockChainRequestSpec, PoWBlocksMessageSpec}
-import scorex.core.NodeViewHolder.{ChangedHistory, GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
-import scorex.core.network.NetworkController.{DataFromPeer, SendToNetwork}
+import scorex.core.mainviews.NodeViewHolder
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetNodeViewChanges, Subscribe}
+import scorex.core.network.NetworkController.ReceivableMessages.{RegisterMessagesHandler, SendToNetwork}
+import scorex.core.network.NetworkControllerSharedMessages.ReceivableMessages.DataFromPeer
+import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.{ChangedHistory, NodeViewHolderEvent}
 import scorex.core.network.message.BasicMsgDataTypes.InvData
 import scorex.core.network.message.{Message, RequestModifierSpec}
 import scorex.core.network.{ConnectedPeer, NetworkController, SendToPeer}
 import scorex.core.settings.NetworkSettings
 import scorex.core.utils.ScorexLogging
-import scorex.core.{ModifierId, ModifierTypeId, NodeViewHolder}
+import scorex.core.{ModifierId, ModifierTypeId}
 
 import scala.annotation.tailrec
 
@@ -49,7 +52,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    override def preStart(): Unit = {
       networkControllerRef !
-         NetworkController.RegisterMessagesHandler(Seq(chainSpec, endDownloadSpec, batchMessageSpec, requestModifierSpec), self)
+         RegisterMessagesHandler(Seq(chainSpec, endDownloadSpec, batchMessageSpec, requestModifierSpec), self)
 
       val vhEvents = Seq(NodeViewHolder.EventType.HistoryChanged)
       viewHolderRef ! Subscribe(vhEvents)

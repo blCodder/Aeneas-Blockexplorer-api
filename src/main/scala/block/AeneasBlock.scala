@@ -1,8 +1,8 @@
 package block
 
 import commons.SimpleBoxTransaction
-import scorex.core.PersistentNodeViewModifier
 import scorex.core.block.Block
+import scorex.core.mainviews.PersistentNodeViewModifier
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 
 /**

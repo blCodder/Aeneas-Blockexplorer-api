@@ -27,14 +27,17 @@ import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAli
 import history.sync.VerySimpleSyncInfo
 import mining.Miner.{MinerAlive, StartMining, StopMining}
 import network.BlockchainDownloader.DownloadEnded
-import scorex.core.NodeViewHolder._
+import scorex.core.ModifierTypeId
+import scorex.core.mainviews.NodeViewHolder.{CurrentView, EventType}
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
+import scorex.core.mainviews.{NodeViewHolder, NodeViewModifier}
+import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.{ChangedHistory, NodeViewHolderEvent}
 import scorex.core.serialization.Serializer
 import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.Transaction
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.core.utils.ScorexLogging
-import scorex.core.{ModifierTypeId, NodeViewHolder, NodeViewModifier}
 import settings.SimpleMiningSettings
 import state.SimpleMininalState
 import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent, NotifySubscribersOnRestore}

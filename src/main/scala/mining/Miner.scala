@@ -23,9 +23,11 @@ import block.{AeneasBlock, PowBlock, PowBlockCompanion, PowBlockHeader}
 import commons.SimpleBoxTransactionMemPool
 import history.AeneasHistory
 import history.storage.AeneasHistoryStorage
-import scorex.core.LocalInterface.LocallyGeneratedModifier
-import scorex.core.NodeViewHolder.{CurrentView, GetDataFromCurrentView, NodeViewHolderEvent}
+import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
 import scorex.core.block.Block.BlockId
+import scorex.core.mainviews.NodeViewHolder.CurrentView
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
+import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.hash.Blake2b256

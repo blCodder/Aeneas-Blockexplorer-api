@@ -5,11 +5,11 @@
 
 It will have next major features : 
 
-- [ ] Implementation of local blockchain generation (local mining). 
-- [ ] Implementation of work with DB. 
-- [ ] Implementation of  cutting edge blocks comparison between two nodes.
+- [x] Implementation of local blockchain generation (local mining). 
+- [x] Implementation of work with DB. 
+- [x] Implementation of  cutting edge blocks comparison between two nodes.
 
-- [ ] Pre-alpha released.
+- [x] Pre-alpha released.
 
 #### 0.0.1-alpha
 ##### Alpha version with Aeneas platform blockchain. 
@@ -17,7 +17,7 @@ It will have next major features :
 It will have next major features : 
 
 - [ ] Distributed blockchain with Byzantium consensus algorithm. 
-- [ ] The first version of UI. Well-known peers lookup. 
+- [x] The first version of UI. Well-known peers lookup. 
 - [ ] Blockchain asynchronous download.
 
 - [ ] Alpha released.

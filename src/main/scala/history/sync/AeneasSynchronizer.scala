@@ -16,7 +16,6 @@
 
 package history.sync
 
-import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorRef
@@ -27,19 +26,23 @@ import history.AeneasHistory
 import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, RequestPeerManager, SendMessageSpec, SynchronizerAlive}
 import network.BlockchainDownloader.SendBlockRequest
 import network.messagespec.{FullBlockChainRequestSpec, PoWBlockMessageSpec}
-import scorex.core.NodeViewHolder.{GetNodeViewChanges, NodeViewHolderEvent, Subscribe}
+import scorex.core.ModifierTypeId
 import scorex.core.block.Block.BlockId
 import scorex.core.consensus.{HistoryReader, SyncInfo}
-import scorex.core.network.NetworkController.{DataFromPeer, SendToNetwork}
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetNodeViewChanges, Subscribe}
+import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
+import scorex.core.network.NetworkController.ReceivableMessages.{RegisterMessagesHandler, SendToNetwork, SubscribePeerManagerEvent}
+import scorex.core.network.NetworkControllerSharedMessages.ReceivableMessages.DataFromPeer
+import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
 import scorex.core.network._
 import scorex.core.network.message.{Message, MessageSpec, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network.peer.PeerManager
-import scorex.core.network.peer.PeerManager.{AddOrUpdatePeer, GetConnectedPeers, KnownPeers}
+import scorex.core.network.peer.PeerManager.{DisconnectedEvent, HandshakedEvent}
+import scorex.core.network.peer.PeerManager.ReceivableMessages.{Disconnected, GetConnectedPeers, Handshaked}
 import scorex.core.settings.NetworkSettings
 import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.transaction.{MempoolReader, Transaction}
 import scorex.core.utils.NetworkTimeProvider
-import scorex.core.{ModifierTypeId, NodeViewHolder, PersistentNodeViewModifier}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
 
@@ -75,13 +78,13 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
    override def preStart(): Unit = {
       //register as a handler for synchronization-specific types of messages
       val messageSpecs = Seq(invSpec, requestModifierSpec, ModifiersSpec, syncInfoSpec, powBlockMessageSpec, chainSpec)
-      networkControllerRef ! NetworkController.RegisterMessagesHandler(messageSpecs, self)
+      networkControllerRef ! RegisterMessagesHandler(messageSpecs, self)
 
-      val pmEvents = Seq(
-         PeerManager.EventType.Handshaked,
-         PeerManager.EventType.Disconnected
+      val pmEvents  = Seq(
+         HandshakedEvent,
+         DisconnectedEvent
       )
-      networkControllerRef ! NetworkController.SubscribePeerManagerEvent(pmEvents)
+      networkControllerRef ! SubscribePeerManagerEvent(pmEvents)
 
       val vhEvents = Seq(
          // superclass events

@@ -4,10 +4,11 @@ import com.google.common.primitives.{Ints, Longs}
 import commons.SimpleBoxTransaction
 import io.circe.Json
 import io.circe.syntax._
-import scorex.core.{ModifierId, ModifierTypeId, NodeViewModifier}
+import scorex.core.{ModifierId, ModifierTypeId}
 import scorex.core.block.Block
 import scorex.core.block.Block.{BlockId, Version}
-import scorex.core.serialization.Serializer
+import scorex.core.mainviews.NodeViewModifier
+import scorex.core.serialization.{JsonSerializable, Serializer}
 import scorex.core.transaction.box.proposition.{PublicKey25519Proposition, PublicKey25519PropositionSerializer}
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Blake2b256
@@ -78,7 +79,7 @@ case class PowBlock(override val parentId: BlockId,
                     override val generatorProposition: PublicKey25519Proposition,
                     brothers: Seq[PowBlockHeader])
   extends PowBlockHeader(parentId, timestamp, nonce, brothersCount, brothersHash, generatorProposition)
-    with AeneasBlock {
+    with AeneasBlock with JsonSerializable {
 
    override type M = PowBlock
 

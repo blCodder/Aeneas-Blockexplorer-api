@@ -1,11 +1,11 @@
 package commons
 
 import com.google.common.primitives.{Bytes, Ints, Longs}
-import io.circe.Json
+import io.circe.{Encoder, Json}
 import io.circe.syntax._
 import io.iohk.iodb.ByteArrayWrapper
 import scorex.core.ModifierId
-import scorex.core.serialization.Serializer
+import scorex.core.serialization.{JsonSerializable, Serializer}
 import scorex.core.transaction.BoxTransaction
 import scorex.core.transaction.account.PublicKeyNoncedBox
 import scorex.core.transaction.box.BoxUnlocker
@@ -31,7 +31,7 @@ case class SimpleBoxTransaction(from: IndexedSeq[(PublicKey25519Proposition, Non
                                 signatures: IndexedSeq[Signature25519],
                                 override val fee: Long,
                                 override val timestamp: Long) extends
-  BoxTransaction[PublicKey25519Proposition, PublicKey25519NoncedBox] {
+  BoxTransaction[PublicKey25519Proposition, PublicKey25519NoncedBox] with JsonSerializable {
 
   override type M = SimpleBoxTransaction
 
@@ -99,6 +99,9 @@ case class SimpleBoxTransaction(from: IndexedSeq[(PublicKey25519Proposition, Non
 }
 
 object SimpleBoxTransaction {
+
+  implicit val simpleBoxEncoder: Encoder[SimpleBoxTransaction] =
+    (sbe: SimpleBoxTransaction) => sbe.json
 
   def nonceFromDigest(digest: Array[Byte]): Nonce = Nonce @@ Longs.fromByteArray(digest.take(8))
 

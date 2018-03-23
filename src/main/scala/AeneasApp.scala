@@ -2,8 +2,8 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import network.AeneasNetwork
-import scorex.core.{NodeViewHolder, PersistentNodeViewModifier}
 import scorex.core.api.http.{ApiRoute, CompositeHttpService}
+import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
 import scorex.core.network.{NetworkController, UPnP}
 import scorex.core.network.message._
 import scorex.core.network.peer.PeerManager
@@ -85,7 +85,7 @@ trait AeneasApp extends ScorexLogging {
             synchronized {
                log.info("Stopping network services")
                if (settings.network.upnpEnabled) upnp.deletePort(settings.network.bindAddress.getPort)
-               networkControllerRef ! NetworkController.ShutdownNetwork
+               networkControllerRef ! NetworkController.ReceivableMessages.ShutdownNetwork
 
                log.info("Stopping actors (incl. block generator)")
                actorSystem.terminate().onComplete { _ =>

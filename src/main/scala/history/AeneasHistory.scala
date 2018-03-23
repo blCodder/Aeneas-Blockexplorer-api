@@ -23,8 +23,8 @@ import history.storage.AeneasHistoryStorage
 import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import scorex.core.block.BlockValidator
-import scorex.core.consensus.History.{HistoryComparisonResult, ModifierIds, ProgressInfo}
-import scorex.core.consensus.{History, ModifierSemanticValidity}
+import scorex.core.consensus.History._
+import scorex.core.consensus.{Absent, History, ModifierSemanticValidity, Valid}
 import scorex.core.settings.ScorexSettings
 import scorex.core.utils.ScorexLogging
 import scorex.core.{ModifierId, ModifierTypeId}
@@ -117,10 +117,10 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
      * @param modifierId - modifier id to check
      * @return
      */
-   override def isSemanticallyValid(modifierId: ModifierId): ModifierSemanticValidity.Value = {
+   override def isSemanticallyValid(modifierId: ModifierId): ModifierSemanticValidity = {
       modifierById(modifierId).map { _ =>
-         ModifierSemanticValidity.Valid
-      }.getOrElse(ModifierSemanticValidity.Absent)
+         Valid
+      }.getOrElse(Absent)
    }
 
    /**
@@ -208,15 +208,15 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
      * @param other other's node sync info
      * @return Equal if nodes have the same history, Younger if another node is behind, Older if a new node is ahead
      */
-   override def compare(other: VerySimpleSyncInfo): HistoryComparisonResult.Value = {
+   override def compare(other: VerySimpleSyncInfo): HistoryComparisonResult = {
       if (other.lastBlocks.isEmpty)
-         HistoryComparisonResult.Younger
+         Younger
 
       log.debug("History : Comparing begins!")
 
       val compareSize = syncInfo.lastBlocks.zipAll(other.lastBlocks, Array.empty[Byte], Array.empty[Byte]).count(el => el._1.deep != el._2.deep)
       if (compareSize == 0)
-         HistoryComparisonResult.Equal
+         Equal
       else findComparisonResultInSyncInfo(syncInfo, other)
    }
 
@@ -228,9 +228,9 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
      * @return Younger status, if current chain more developed.
      * Older, if other chain is more developed.
      */
-   private def findComparisonResultInSyncInfo(currentSyncInfo : VerySimpleSyncInfo, otherSyncInfo : VerySimpleSyncInfo) : HistoryComparisonResult.Value = {
+   private def findComparisonResultInSyncInfo(currentSyncInfo : VerySimpleSyncInfo, otherSyncInfo : VerySimpleSyncInfo) : HistoryComparisonResult = {
       if (otherSyncInfo.genesisBlock.deep != genesis().deep)
-         HistoryComparisonResult.Younger
+         Younger
 
       val currentBlocks = currentSyncInfo.lastBlocks.reverse
       val otherBlocks = otherSyncInfo.lastBlocks.reverse
@@ -241,13 +241,13 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
       if (firstCurrentBlock.deep != firstOtherBlock.deep) { // this condition is unreachable, but check it.
 
          if (otherBlocks.tail.exists(el => el.deep == firstCurrentBlock.deep))
-            HistoryComparisonResult.Older
+            Older
          else if (currentBlocks.tail.exists(el => el.deep == firstOtherBlock.deep))
-            HistoryComparisonResult.Younger
+            Younger
 
-         else HistoryComparisonResult.Nonsense
+         else Nonsense
       }
-      else HistoryComparisonResult.Nonsense
+      else Nonsense
    }
 
    /**
@@ -299,8 +299,6 @@ object AeneasHistory extends ScorexLogging {
             blockStorage.close()
          }
       })
-
-      val storage = new AeneasHistoryStorage(blockStorage, settings)
       log.debug(s"AeneasHistoryStorage height on generating state : ${storage.height}")
 
       val validators = Seq(new DifficultyValidator(settings, storage))

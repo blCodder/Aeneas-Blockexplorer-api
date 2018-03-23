@@ -2,19 +2,23 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import block.AeneasBlock
 import com.typesafe.config.ConfigFactory
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
-import history.sync.{AeneasSynchronizer, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
 import history.AeneasHistory
+import history.sync.{AeneasSynchronizer, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
 import mining.Miner
 import network.BlockchainDownloader
 import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
-import scorex.core.app.Application
-import scorex.core.network.NodeViewSynchronizer
 import scorex.core.network.message.MessageSpec
+import scorex.core.serialization.SerializerRegistry
+import scorex.core.serialization.SerializerRegistry.SerializerRecord
 import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import settings.{SimpleLocalInterface, SimpleSettings}
 import viewholder.AeneasNodeViewHolder
+
+import scala.concurrent.duration._
+import scala.io.Source
+import scala.language.postfixOps
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -36,6 +40,8 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
    override implicit lazy val settings: ScorexSettings = SimpleSettings.read().scorexSettings
    override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
    log.info(s"SimpleBloсkchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
+
+   implicit val serializerReg: SerializerRegistry = SerializerRegistry(Seq(SerializerRecord(SimpleBoxTransaction.simpleBoxEncoder)))
 
    override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActor)
 

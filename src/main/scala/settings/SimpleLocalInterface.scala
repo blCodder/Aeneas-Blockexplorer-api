@@ -20,9 +20,10 @@ import akka.actor.ActorRef
 import block.{AeneasBlock, PowBlock}
 import commons.SimpleBoxTransaction
 import mining.Miner.{MineBlock, StartMining, StopMining}
-import scorex.core.NodeViewHolder.Subscribe
+import scorex.core.mainviews.NodeViewHolder
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.Subscribe
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
-import scorex.core.{LocalInterface, ModifierId, NodeViewHolder}
+import scorex.core.{LocalInterface, ModifierId}
 
 /**
   * @author is Alex Syrotenko (@flystyle)
