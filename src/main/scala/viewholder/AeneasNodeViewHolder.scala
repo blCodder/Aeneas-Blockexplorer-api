@@ -63,6 +63,27 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    private lazy val synchronizerStatus : AtomicBoolean = new AtomicBoolean(false)
    private lazy val minerStatus : AtomicBoolean = new AtomicBoolean(false)
    private lazy val minerActivation : AtomicBoolean = new AtomicBoolean(false)
+
+   override protected var nodeView = restoreState().getOrElse(updateChainState().getOrElse(genesisState))
+
+   private def checkGenesisAvaliable() : Boolean = {
+      val genesisEnv = Option(System.getenv("AENEAS_GENESIS"))
+      val genesisFile = new File(genesisEnv.getOrElse(""))
+      if (genesisFile.exists() && genesisEnv.isDefined) {
+         genesisFile.createNewFile()
+         true
+      }
+      false
+   }
+
+   private def checkShouldUpdate() : Boolean = {
+      val history = AeneasHistory.readOrGenerate(settings, minerSettings)
+      if (history.height <= 0) {
+         true
+      }
+      false
+   }
+
    /**
      * Restore a local view during a node startup.
      * If no any stored view or other peers in network found, None is to be returned.
@@ -71,29 +92,38 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      * specific signal will be send to synchronizer.
      */
    override def restoreState(): Option[(HIS, MS, VL, MP)] = {
-      val genesisEnv = Option(System.getenv("AENEAS_GENESIS"))
-      val genesisFile = new File(genesisEnv.getOrElse(""))
       minerActivation.set(false)
-      if (genesisFile.exists() && genesisEnv.isDefined) {
-         genesisFile.createNewFile()
-         log.debug(s"Genesis file exists : ${genesisFile.exists}")
-         None
-      } else {
-         AeneasWallet.walletFile(settings)
-         log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
-         val history = AeneasHistory.readOrGenerate(settings, minerSettings)
-         val minState = SimpleMininalState.readOrGenerate(settings)
-         val wallet = AeneasWallet.readOrGenerate(settings, 1)
-         val memPool = SimpleBoxTransactionMemPool.emptyPool
+      if (checkGenesisAvaliable()) None
+      if (checkShouldUpdate()) None
 
-         // if history exists, it will compare blockchains through the SyncInfo.
-         // otherwise, it should request the history downloading process and send message.
-         if (history.height <= 0) {
-            self ! NotifySubscribersOnRestore
-         }
-         log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
-         Some(history, minState, wallet, memPool)
-      }
+      AeneasWallet.walletFile(settings)
+      log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
+      val history = AeneasHistory.readOrGenerate(settings, minerSettings)
+      val minState = SimpleMininalState.readOrGenerate(settings)
+      val wallet = AeneasWallet.readOrGenerate(settings, 1)
+      val memPool = SimpleBoxTransactionMemPool.emptyPool
+
+      log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
+      Some(history, minState, wallet, memPool)
+   }
+
+   /**
+     * Restore a local view during a node startup.
+     * If no any stored view or other peers in network found, None is to be returned.
+     *
+     * If it is the first launch, history should be empty and
+     * specific signal will be send to synchronizer.
+     */
+
+   def updateChainState() : Option[(HIS, MS, VL, MP)] = {
+      if (checkGenesisAvaliable()) None
+      self ! NotifySubscribersOnRestore
+
+      // should be empty
+      val history = AeneasHistory.readOrGenerate(settings, minerSettings)
+      val minState = SimpleMininalState.readOrGenerate(settings)
+      val wallet = AeneasWallet.readOrGenerate(settings, 1)
+      val memPool = SimpleBoxTransactionMemPool.emptyPool
    }
 
    /**

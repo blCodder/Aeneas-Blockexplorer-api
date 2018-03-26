@@ -137,12 +137,10 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
          log.debug(s"Synchronizer : Available peer handshakes : $peersHandshakes")
          peersHandshakes.foreach(shake => log.debug(s"Handshake : ${shake.toString}"))
 
-//         val peers = peersHandshakes.map(shake => ConnectedPeer(shake.declaredAddress.get, self, Outgoing, shake))
-//         log.debug(s"Synchronizer : Available peers size : ${peers.size}")
-
          val handshake = peersHandshakes.head
          log.debug(s"Known peers : ${networkSettings.toString}")
          val knownPeer = networkSettings.knownPeers.head
+         // TODO: second param mb doesnt work??
          val peer = ConnectedPeer(knownPeer, self, Outgoing, handshake)
 
          networkControllerRef ! SendToNetwork(msg, SendToPeer(peer))
