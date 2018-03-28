@@ -73,7 +73,7 @@ class PeerManager(settings: ScorexSettings, timeProvider: NetworkTimeProvider) e
 
   private def apiInterface: Receive = {
     case GetConnectedPeers =>
-      sender() ! (connectedPeers.values.map(_.handshake).toSeq: Seq[Handshake])
+      sender() ! connectedPeers.values.toSeq
 
     case GetAllPeers =>
       sender() ! peerDatabase.knownPeers()

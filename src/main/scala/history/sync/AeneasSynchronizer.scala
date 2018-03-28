@@ -31,14 +31,13 @@ import scorex.core.block.Block.BlockId
 import scorex.core.consensus.{HistoryReader, SyncInfo}
 import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetNodeViewChanges, Subscribe}
 import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
-import scorex.core.network.NetworkController.ReceivableMessages.{RegisterMessagesHandler, SendToNetwork, SubscribePeerManagerEvent}
+import scorex.core.network.NetworkController.ReceivableMessages.{AcquirePeerHandler, RegisterMessagesHandler, SendToNetwork, SubscribePeerManagerEvent}
 import scorex.core.network.NetworkControllerSharedMessages.ReceivableMessages.DataFromPeer
 import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
 import scorex.core.network._
 import scorex.core.network.message.{Message, MessageSpec, ModifiersSpec, SyncInfoMessageSpec}
-import scorex.core.network.peer.PeerManager
+import scorex.core.network.peer.PeerManager.ReceivableMessages.GetConnectedPeers
 import scorex.core.network.peer.PeerManager.{DisconnectedEvent, HandshakedEvent}
-import scorex.core.network.peer.PeerManager.ReceivableMessages.{Disconnected, GetConnectedPeers, Handshaked}
 import scorex.core.settings.NetworkSettings
 import scorex.core.transaction.box.proposition.Proposition
 import scorex.core.transaction.{MempoolReader, Transaction}
@@ -67,13 +66,13 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                          networkSettings: NetworkSettings,
                          timeProvider: NetworkTimeProvider,
                          downloader : ActorRef) extends
-  NodeViewSynchronizer [P, TX, SI, SIS, PMOD, HR, MR] (networkControllerRef,
+   NodeViewSynchronizer [P, TX, SI, SIS, PMOD, HR, MR] (networkControllerRef,
     viewHolderRef, localInterfaceRef, syncInfoSpec, networkSettings, timeProvider) {
 
    val powBlockMessageSpec = new PoWBlockMessageSpec
    val chainSpec = new FullBlockChainRequestSpec
    var peerManager : ActorRef = ActorRef.noSender
-   implicit lazy val timeout = new Timeout(5.second)
+   implicit lazy val timeout = new Timeout(500.millisecond)
 
    override def preStart(): Unit = {
       //register as a handler for synchronization-specific types of messages
@@ -113,7 +112,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       downloader ! SendMessageSpec(requestModifierSpec)
 
       val peerManagerRequest = ask(networkControllerRef, RequestPeerManager).mapTo[ActorRef]
-      peerManager = Await.result(peerManagerRequest, 2.second)
+      peerManager = Await.result(peerManagerRequest, 10.second)
 
       viewHolderRef ! SynchronizerAlive
 
@@ -130,20 +129,12 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
          val msg = Message(chainSpec, Right("blockchain"), None)
          log.debug(s"Synchronizer : PreStartDownloadRequest was coming with message : ${msg.data.get}.")
 
-         Thread.sleep(5000)
+         Thread.sleep(3000)
 
-         val peersRequestFuture = ask(peerManager, GetConnectedPeers).mapTo[Seq[Handshake]]
-         val peersHandshakes = Await.result(peersRequestFuture, timeout.duration)
-         log.debug(s"Synchronizer : Available peer handshakes : $peersHandshakes")
-         peersHandshakes.foreach(shake => log.debug(s"Handshake : ${shake.toString}"))
+         val peersHandshakeFuture = ask(peerManager, GetConnectedPeers).mapTo[Seq[ConnectedPeer]]
+         val peers = Await.result(peersHandshakeFuture, timeout.duration)
 
-         val handshake = peersHandshakes.head
-         log.debug(s"Known peers : ${networkSettings.toString}")
-         val knownPeer = networkSettings.knownPeers.head
-         // TODO: second param mb doesnt work??
-         val peer = ConnectedPeer(knownPeer, self, Outgoing, handshake)
-
-         networkControllerRef ! SendToNetwork(msg, SendToPeer(peer))
+         networkControllerRef ! SendToNetwork(msg, SendToPeers(peers))
    }
 
    /**

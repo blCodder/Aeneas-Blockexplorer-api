@@ -45,6 +45,8 @@ trait AeneasApp extends ScorexLogging {
 
    val nProps = Props(new AeneasNetwork(settings.network, messagesHandler, upnp, peerManagerRef, timeProvider))
    val networkControllerRef: ActorRef = actorSystem.actorOf(nProps, "networkController")
+   log.debug(s"Network controller was started : ${networkControllerRef.toString}")
+
 
    // p2p
    lazy val upnp = new UPnP(settings.network)

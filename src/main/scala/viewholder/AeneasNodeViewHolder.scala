@@ -64,7 +64,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    private lazy val minerStatus : AtomicBoolean = new AtomicBoolean(false)
    private lazy val minerActivation : AtomicBoolean = new AtomicBoolean(false)
 
-   override protected var nodeView = restoreState().getOrElse(updateChainState().getOrElse(genesisState))
+   var nodeView = restoreState().getOrElse(updateChainState().getOrElse(genesisState))
 
    private def checkGenesisAvaliable() : Boolean = {
       val genesisEnv = Option(System.getenv("AENEAS_GENESIS"))
@@ -124,6 +124,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       val minState = SimpleMininalState.readOrGenerate(settings)
       val wallet = AeneasWallet.readOrGenerate(settings, 1)
       val memPool = SimpleBoxTransactionMemPool.emptyPool
+      Some(history, minState, wallet, memPool)
    }
 
    /**
@@ -253,9 +254,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
 
    override protected def getCurrentInfo: Receive = {
       case GetDataFromCurrentView(f) =>
-         log.debug("AeneasViewHolder: Data from Miner was received")
          sender() ! f(CurrentView(history(), minimalState(), vault(), memoryPool()))
-         log.debug("AeneasViewHolder: CurrentView was send back to Miner")
    }
 
    override def receive: Receive =
