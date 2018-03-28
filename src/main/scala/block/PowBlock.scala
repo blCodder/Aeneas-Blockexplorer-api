@@ -144,4 +144,5 @@ object PowBlockCompanion extends Serializer[PowBlock] {
 
 object PowBlock {
    val ModifierTypeId: ModifierTypeId = scorex.core.ModifierTypeId @@ 3.toByte
+   val powBlockSize = 148
 }
