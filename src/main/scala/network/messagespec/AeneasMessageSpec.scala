@@ -32,7 +32,7 @@ import scala.util.Try
 /**
   * * Message specification for `PowBlock`
   */
-class PoWBlockMessageSpec extends MessageSpec[PowBlock]{
+class PoWBlockMessageSpec extends MessageSpec[PowBlock] {
    override val messageCode: MessageCode = 102.byteValue()
    override val messageName: String = "PowBlock"
 
@@ -64,13 +64,15 @@ class PoWBlocksMessageSpec extends MessageSpec[Seq[PowBlock]] {
 }
 
 
-class FullBlockChainRequestSpec extends MessageSpec[String] {
+class FullBlockChainRequestSpec extends MessageSpec[Unit] {
    override val messageCode: MessageCode = 99.byteValue()
    override val messageName: String = "Blockchain"
 
-   override def toBytes(obj: String): Array[Byte] = obj.getBytes
+   override def toBytes(obj: Unit): Array[MessageCode] = Array()
 
-   override def parseBytes(bytes: Array[MessageCode]): Try[String] = Try { Strings.fromByteArray(bytes) }
+   override def parseBytes(bytes: Array[MessageCode]): Try[Unit] =
+      Try(require(bytes.isEmpty, "Non-empty data for Blockchain Download Signal"))
+
 }
 
 class EndDownloadSpec extends MessageSpec[String] {

@@ -56,7 +56,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
 
    val downloaderActor : ActorRef =
       actorSystem.actorOf(Props(
-         new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network)))
+         new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network, downloadSpecs)))
 
    override val nodeViewSynchronizer: ActorRef =
       actorSystem.actorOf(Props(

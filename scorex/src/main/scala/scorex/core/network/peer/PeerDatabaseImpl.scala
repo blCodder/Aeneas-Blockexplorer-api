@@ -43,12 +43,7 @@ class PeerDatabaseImpl(filename: Option[String]) extends PeerDatabase with Score
   }
 
   override def knownPeers(): Map[InetSocketAddress, PeerInfo] = {
-//    printPeersToLog()
-    val knownPeers = whitelistPersistence.keys.flatMap(k => whitelistPersistence.get(k).map(v => k -> v)).toMap
-    knownPeers.foreach {
-      case (addr, info) => log.debug(addr.toString + " " + info)
-    }
-    knownPeers
+    whitelistPersistence.keys.flatMap(k => whitelistPersistence.get(k).map(v => k -> v)).toMap
   }
 
   override def blacklistedPeers(): Seq[String] = blacklist.keys.toSeq

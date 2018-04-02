@@ -11,13 +11,6 @@ import settings.AeneasSettings
   *         Created on 28.03.18.
   */
 class AeneasMessageSpecTest extends FunSuite with Matchers {
-   test("Blockchain download request spec serialize/deserialize correctly") {
-      val bcDownloadMsgSpec = new FullBlockChainRequestSpec()
-      val msg : String = "blockchain"
-      val deserialized = bcDownloadMsgSpec.parseBytes(bcDownloadMsgSpec.toBytes(msg)).getOrElse(None)
-      deserialized shouldBe msg
-   }
-
    test("End download request spec serialize/deserialize correctly") {
       val endDownloadMsgSpec = new EndDownloadSpec()
       val msg : String = "END"
