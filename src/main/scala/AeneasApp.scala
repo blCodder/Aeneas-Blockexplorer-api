@@ -33,7 +33,7 @@ trait AeneasApp extends ScorexLogging {
    // api
    val apiRoutes: Seq[ApiRoute]
 
-   protected implicit lazy val actorSystem = ActorSystem(settings.network.agentName)
+   protected implicit def actorSystem: ActorSystem
 
    val nodeViewHolderRef: ActorRef
    val nodeViewSynchronizer: ActorRef

@@ -17,7 +17,7 @@
 package viewholder
 
 import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import akka.actor.ActorRef
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
@@ -70,7 +70,16 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      * If it is the first launch, history should be empty and
      * specific signal will be send to synchronizer.
      */
-   override def restoreState(): Option[(HIS, MS, VL, MP)] = {
+   private def emptyState ():(HIS, MS, Option[VL], MP) = {
+      val history = AeneasHistory.readOrGenerate(settings, minerSettings)
+      val minState = SimpleMininalState.readOrGenerate(settings)
+      val wallet = None
+      val memPool = SimpleBoxTransactionMemPool.emptyPool
+
+      (history, minState, wallet, memPool)
+   }
+
+   override def restoreState(): Option[(HIS, MS, Option[VL], MP)] = {
       val genesisEnv = Option(System.getenv("AENEAS_GENESIS"))
       val genesisFile = new File(genesisEnv.getOrElse(""))
       minerActivation.set(false)
@@ -92,14 +101,14 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
             self ! NotifySubscribersOnRestore
          }
          log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
-         Some(history, minState, wallet, memPool)
+         Some(history, minState, Option(wallet), memPool)
       }
    }
 
    /**
      * Hard-coded initial view all the honest nodes in a network are making progress from.
      */
-   override protected def genesisState: (HIS, MS, VL, MP) = {
+   override protected def genesisState: (HIS, MS, Option[VL], MP) = {
       log.debug("AeneasNodeViewHolder : Genesis – started")
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
       val genesisBlock = new PowBlock(minerSettings.GenesisParentId,
@@ -125,7 +134,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       log.debug(s"AeneasNodeViewHolder : Genesis is ended, miner alive : ${minerStatus.get()}, " +
                 s"genesis miner: ${minerActivation.get()} ")
 
-      (history, mininalState, wallet, SimpleBoxTransactionMemPool.emptyPool)
+      (history, mininalState, Option (wallet), SimpleBoxTransactionMemPool.emptyPool)
    }
 
    /**
@@ -242,6 +251,16 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          super.getNodeViewChanges orElse {
          case a: Any => log.error("Strange input: " + a)
       }
+
+   /**
+     * The main data structure a node software is taking care about, a node view consists
+     * of four elements to be updated atomically: history (log of persistent modifiers),
+     * state (result of log's modifiers application to pre-historical(genesis) state,
+     * user-specific information stored in vault (it could be e.g. a wallet), and a memory pool.
+     */
+   private val nodeViewState = new AtomicReference(emptyState())
+   override protected def updateNodeViewState(newNodeView:NodeView):Unit = nodeViewState.set(newNodeView)
+   override protected def nodeView: NodeView = nodeViewState.get()
 }
 
 object AeneasNodeViewHolder {

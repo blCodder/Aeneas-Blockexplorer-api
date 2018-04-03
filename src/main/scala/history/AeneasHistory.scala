@@ -271,6 +271,12 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
 
       loop(startBlock)
    }
+
+
+   def averageDelay(blockId: ModifierId, blockNum: Int): Try[Long] = Try {
+      val block = modifierById(blockId).get
+      (block.timestamp - parentBlock(block).get.timestamp) / blockNum
+   }
 }
 
 object AeneasHistory extends ScorexLogging {

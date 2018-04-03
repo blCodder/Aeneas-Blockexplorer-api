@@ -24,7 +24,7 @@ import scala.language.postfixOps
   *         Created on 18.01.18.
   */
 
-class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with ScorexLogging {
+class SimpleBlockChain(loadSettings: LoadSettings, actorSystem0: ActorSystem) extends AeneasApp with ScorexLogging {
    override type P = PublicKey25519Proposition
    override type TX = SimpleBoxTransaction
    override type PMOD = AeneasBlock
@@ -41,8 +41,6 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
    log.info(s"SimpleBloсkchain : Settings was initialized. Length is : ${simpleSettings.toString.length}")
 
    implicit val serializerReg: SerializerRegistry = SerializerRegistry(Seq(SerializerRecord(SimpleBoxTransaction.simpleBoxEncoder)))
-
-   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActor)
 
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
 
@@ -68,20 +66,23 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
      * API description in openapi format in YAML or JSON
      */
    override val swaggerConfig: String = ""
+
+   override protected implicit lazy val actorSystem: ActorSystem = actorSystem0
 }
 
 object SimpleBlockChain {
    def main(args: Array[String]): Unit = {
       val loadSettings = LoadSettings()
-      new SimpleBlockChain(loadSettings).run()
+      val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActorConfig)
+      new SimpleBlockChain(loadSettings, actorSystem).run()
    }
 }
 
-case class LoadSettings() extends ScorexLogging {
+case class LoadSettings() {
    val simpleSettings : AeneasSettings = AeneasSettings.read()
    private val root = ConfigFactory.load()
-   val aeneasActor = root.getConfig("Aeneas")
-   log.debug(aeneasActor.toString)
+   val aeneasActorConfig = root.getConfig("Aeneas")
+   println(aeneasActorConfig.toString)
   // set logging path:
   sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
 }
