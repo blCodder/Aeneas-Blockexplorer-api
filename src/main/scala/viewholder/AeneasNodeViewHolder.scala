@@ -92,6 +92,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       val memPool = SimpleBoxTransactionMemPool.emptyPool
 
       log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
+      notifySubscribers(EventType.HistoryChanged, ChangedHistory(history))
       Some(history, minState, wallet, memPool)
    }
 
@@ -111,6 +112,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       val minState = SimpleMininalState.readOrGenerate(settings)
       val wallet = AeneasWallet.readOrGenerate(settings, 1)
       val memPool = SimpleBoxTransactionMemPool.emptyPool
+      notifySubscribers(EventType.HistoryChanged, ChangedHistory(history))
       Some(history, minState, wallet, memPool)
    }
 
@@ -161,7 +163,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          if (synchronizerStatus.get() && minerStatus.get()) {
             notifyAeneasSubscribers(NodeViewEvent.PreStartDownloadRequest, PreStartDownloadRequest)
             notifyAeneasSubscribers(NodeViewEvent.StopMining, StopMining)
-            notifySubscribers(EventType.HistoryChanged, ChangedHistory(history()))
+            notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history()))
             synchronizerStatus.compareAndSet(true, false)
             minerStatus.compareAndSet(true, false)
          }
@@ -189,7 +191,9 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          synchronizerStatus.compareAndSet(false, true)
          if (!minerActivation.get() || !minerStatus.get()) {
             self ! NotifySubscribersOnRestore
+
          }
+         notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history()))
    }
 
    /**
@@ -204,7 +208,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          if (minerActivation.get()) {
             notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
          }
-         else if (!synchronizerStatus.get())
+         if (!synchronizerStatus.get())
             self ! NotifySubscribersOnRestore
    }
 
@@ -238,6 +242,8 @@ object AeneasNodeViewHolder {
       // synchronizer events
       val PreStartDownloadRequest : NodeViewEvent.Value = Value(3)
       val PreStartDownloadResponce : NodeViewEvent.Value = Value(4)
+
+      val UpdateHistory : NodeViewEvent.Value = Value(5)
    }
    case class AeneasSubscribe(minerEvents : Seq[NodeViewEvent.Value])
 

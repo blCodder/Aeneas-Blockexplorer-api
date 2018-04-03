@@ -84,10 +84,6 @@ MR <: MempoolReader[TX]](networkControllerRef: ActorRef,
     case SemanticallyFailedModification(mod, throwable) =>
     //todo: penalize source peer?
 
-    case ChangedHistory(reader: HR@unchecked) if reader.isInstanceOf[HR] =>
-      //TODO isInstanceOf, type erasure
-      historyReaderOpt = Some(reader)
-
     case ChangedMempool(reader: MR@unchecked) if reader.isInstanceOf[MR] =>
       //TODO isInstanceOf, type erasure
       mempoolReaderOpt = Some(reader)
