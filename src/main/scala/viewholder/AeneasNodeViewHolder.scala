@@ -27,8 +27,8 @@ import history.sync.VerySimpleSyncInfo
 import mining.Miner.{MinerAlive, StartMining, StopMining}
 import network.BlockchainDownloader.DownloadEnded
 import scorex.core.ModifierTypeId
+import scorex.core.mainviews.NodeViewHolder.CurrentView
 import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
-import scorex.core.mainviews.NodeViewHolder.{CurrentView, EventType}
 import scorex.core.mainviews.{NodeViewHolder, NodeViewModifier}
 import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.{ChangedHistory, NodeViewHolderEvent}
 import scorex.core.serialization.Serializer
@@ -111,6 +111,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       val minState = SimpleMininalState.readOrGenerate(settings)
       val wallet = AeneasWallet.readOrGenerate(settings, 1)
       val memPool = SimpleBoxTransactionMemPool.emptyPool
+      notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history))
       Some(history, minState, wallet, memPool)
    }
 
@@ -132,7 +133,6 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    private var aeneasSubscribers = mutable.Map[AeneasNodeViewHolder.NodeViewEvent.Value, Seq[ActorRef]]()
 
    protected def notifyAeneasSubscribers[E <: NodeViewHolderEvent](eventType: NodeViewEvent.Value, signal: E): Unit = {
-      val filtered = aeneasSubscribers.getOrElse(eventType, Seq())
       aeneasSubscribers.getOrElse(eventType, Seq()).foreach(_ ! signal)
    }
 
@@ -161,11 +161,10 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          if (synchronizerStatus.get() && minerStatus.get()) {
             notifyAeneasSubscribers(NodeViewEvent.PreStartDownloadRequest, PreStartDownloadRequest)
             notifyAeneasSubscribers(NodeViewEvent.StopMining, StopMining)
-            notifySubscribers(EventType.HistoryChanged, ChangedHistory(history()))
+            notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history()))
             synchronizerStatus.compareAndSet(true, false)
             minerStatus.compareAndSet(true, false)
          }
-      case _ =>
    }
 
    protected def onDownloadEnded : Receive = {
@@ -187,9 +186,9 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    protected def onSynchronizerAlive : Receive = {
       case SynchronizerAlive =>
          synchronizerStatus.compareAndSet(false, true)
-         if (!minerActivation.get() || !minerStatus.get()) {
+         if (!minerActivation.get() || !minerStatus.get())
             self ! NotifySubscribersOnRestore
-         }
+         notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history()))
    }
 
    /**
@@ -204,7 +203,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          if (minerActivation.get()) {
             notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
          }
-         else if (!synchronizerStatus.get())
+         if (!synchronizerStatus.get())
             self ! NotifySubscribersOnRestore
    }
 
@@ -237,7 +236,7 @@ object AeneasNodeViewHolder {
 
       // synchronizer events
       val PreStartDownloadRequest : NodeViewEvent.Value = Value(3)
-      val PreStartDownloadResponce : NodeViewEvent.Value = Value(4)
+      val UpdateHistory : NodeViewEvent.Value = Value(4)
    }
    case class AeneasSubscribe(minerEvents : Seq[NodeViewEvent.Value])
 
