@@ -54,7 +54,7 @@ class SimpleBlockChain(loadSettings: LoadSettings, actorSystem0: ActorSystem) ex
 
    val downloaderActor : ActorRef =
       actorSystem.actorOf(Props(
-         new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network, downloadSpecs)))
+         new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network, downloadSpecs.tail.tail)))
 
    override val nodeViewSynchronizer: ActorRef =
       actorSystem.actorOf(Props(

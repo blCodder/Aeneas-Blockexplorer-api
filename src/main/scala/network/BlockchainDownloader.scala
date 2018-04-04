@@ -46,7 +46,6 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
                            specs: Seq[MessageSpec[_]]) extends Actor with ScorexLogging {
 
    protected val invSpec = new InvSpec(networkSettings.maxInvObjects)
-   protected val blockMessageSpec = new PoWBlockMessageSpec
    protected val batchMessageSpec = new PoWBlocksMessageSpec
    protected val endDownloadSpec = new EndDownloadSpec
 
@@ -54,7 +53,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    override def preStart(): Unit = {
       networkControllerRef !
-         RegisterMessagesHandler(specs.tail, self)
+         RegisterMessagesHandler(specs ++ Seq(invSpec), self)
 
       val vhEvents = Seq(NodeViewHolder.EventType.HistoryChanged)
       viewHolderRef ! Subscribe(vhEvents)
@@ -110,7 +109,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
                            log.debug(s"Download portion length is : ${acquiredBlocks.length}, will send it to ${remotePeer.socketAddress}")
                            networkControllerRef ! SendToNetwork(msg, SendToPeer(remotePeer))
                         }
-                     case _ =>
+                     case _ => log.debug(s"Can`t read history")
                   }
                }
             case _ => log.debug(s"Incorrect type : ${_data.getClass.toString}")
