@@ -2,6 +2,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import network.AeneasNetwork
+import network.messagespec.{EndDownloadSpec, FullBlockChainRequestSpec, PoWBlockMessageSpec, PoWBlocksMessageSpec}
 import scorex.core.api.http.{ApiRoute, CompositeHttpService}
 import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
 import scorex.core.network.{NetworkController, UPnP}
@@ -45,6 +46,8 @@ trait AeneasApp extends ScorexLogging {
 
    val nProps = Props(new AeneasNetwork(settings.network, messagesHandler, upnp, peerManagerRef, timeProvider))
    val networkControllerRef: ActorRef = actorSystem.actorOf(nProps, "networkController")
+   log.debug(s"Network controller was started : ${networkControllerRef.toString}")
+
 
    // p2p
    lazy val upnp = new UPnP(settings.network)
@@ -65,8 +68,16 @@ trait AeneasApp extends ScorexLogging {
       )
    }
 
+   protected lazy val downloadSpecs = {
+      val chainSpec = new FullBlockChainRequestSpec
+      val blockMessageSpec = new PoWBlockMessageSpec
+      val batchMessageSpec = new PoWBlocksMessageSpec
+      val endDownloadSpec = new EndDownloadSpec
+      Seq (chainSpec, blockMessageSpec, batchMessageSpec, endDownloadSpec)
+   }
+
    lazy val combinedRoute = CompositeHttpService(actorSystem, apiRoutes, settings.restApi, swaggerConfig).compositeRoute
-   lazy val messagesHandler: MessageHandler = MessageHandler(basicSpecs ++ additionalMessageSpecs)
+   lazy val messagesHandler: MessageHandler = MessageHandler(basicSpecs ++ additionalMessageSpecs ++ downloadSpecs)
   
    def run(): Unit = {
       require(settings.network.agentName.length <= ApplicationNameLimit)

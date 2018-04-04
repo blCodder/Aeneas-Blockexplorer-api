@@ -23,12 +23,6 @@ import scala.concurrent.duration._
 import scala.language.{existentials, postfixOps}
 import scala.util.{Failure, Success, Try}
 
-// 2eia2wdgrruzkag9XLFVGM9bhMhAxW3UPmJQ5SqX8nwL
-// zootoxin,new-awaked,supplice,femineity,gray-colored,nonincorporated,
-// castanets,syrtis,gawks,organism,plumaceous,gerontes,lathier,spoliator,
-// hydrated,exampleship,quinaldic,terrena,pythic,ekistic,hydrophoran,
-// manchette,extramedullary,berte
-
 /**
   * Control all network interaction
   * must be singleton
@@ -49,6 +43,9 @@ class NetworkController(settings: NetworkSettings,
   private implicit val timeout: Timeout = Timeout(settings.controllerTimeout.getOrElse(5 seconds))
 
   private val messageHandlers = mutable.Map[Seq[Message.MessageCode], ActorRef]()
+
+  // map socket address for each current connection to ConnectionHandlerRef
+  private val peerConnectionHandlers = mutable.Map[InetSocketAddress, ActorRef]()
 
   private val tcpManager = IO(Tcp)
 
@@ -151,6 +148,12 @@ class NetworkController(settings: NetworkSettings,
       log.info(s"Disconnected from ${peer.socketAddress}")
       peer.handlerRef ! CloseConnection
       peerManagerRef ! Disconnected(peer.socketAddress)
+      peerConnectionHandlers.get(peer.socketAddress) match {
+         case Some(address) => context.stop(address)
+         case _ =>
+      }
+      // delete socket address with all mappings from peerConnectionHandlers
+      peerConnectionHandlers - peer.socketAddress
 
     case Blacklist(peer) =>
       peer.handlerRef ! PeerConnectionHandler.ReceivableMessages.Blacklist
@@ -168,7 +171,7 @@ class NetworkController(settings: NetworkSettings,
       val connection = sender()
       val handlerProps: Props = PeerConnectionHandlerRef.props(settings, self, peerManagerRef,
         messageHandler, connection, direction, externalSocketAddress, remote, timeProvider)
-      context.actorOf(handlerProps) // launch connection handler
+      peerConnectionHandlers.put(remote, context.actorOf(handlerProps)) // launch connection handler
       outgoing -= remote
 
     case CommandFailed(c: Connect) =>
@@ -189,6 +192,14 @@ class NetworkController(settings: NetworkSettings,
 
     case SubscribePeerManagerEvent(events) =>
       peerManagerRef ! Subscribe(sender(), events)
+
+    case AcquirePeerHandler(address)=>
+     peerConnectionHandlers.get(address) match {
+       case Some(actorRef) =>
+         sender() ! actorRef
+
+       case None =>
+     }
   }
 
   override def receive: Receive = bindingLogic orElse businessLogic orElse peerLogic orElse interfaceCalls orElse {
@@ -205,14 +216,16 @@ class NetworkController(settings: NetworkSettings,
 }
 
 object NetworkController {
-  object ReceivableMessages {
-    case class RegisterMessagesHandler(specs: Seq[MessageSpec[_]], handler: ActorRef)
-    case class SendToNetwork(message: Message[_], sendingStrategy: SendingStrategy)
-    case object ShutdownNetwork
-    case class ConnectTo(address: InetSocketAddress)
-    case class DisconnectFrom(peer: ConnectedPeer)
-    case class Blacklist(peer: ConnectedPeer)
-    case class SubscribePeerManagerEvent(events: Seq[EventType])
+   object ReceivableMessages {
+      case class AcquirePeerHandler(address: InetSocketAddress)
+
+      case class RegisterMessagesHandler(specs: Seq[MessageSpec[_]], handler: ActorRef)
+      case class SendToNetwork(message: Message[_], sendingStrategy: SendingStrategy)
+      case object ShutdownNetwork
+      case class ConnectTo(address: InetSocketAddress)
+      case class DisconnectFrom(peer: ConnectedPeer)
+      case class Blacklist(peer: ConnectedPeer)
+      case class SubscribePeerManagerEvent(events: Seq[EventType])
   }
 }
 

@@ -17,10 +17,11 @@
 package network.messagespec
 
 import block.{PowBlock, PowBlockCompanion}
+import org.bouncycastle.util.Strings
 import scorex.core.network.message.Message.MessageCode
 import scorex.core.network.message.MessageSpec
 
-import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.util.Try
 
 /**
@@ -31,7 +32,7 @@ import scala.util.Try
 /**
   * * Message specification for `PowBlock`
   */
-class PoWBlockMessageSpec extends MessageSpec[PowBlock]{
+class PoWBlockMessageSpec extends MessageSpec[PowBlock] {
    override val messageCode: MessageCode = 102.byteValue()
    override val messageName: String = "PowBlock"
 
@@ -48,32 +49,30 @@ class PoWBlocksMessageSpec extends MessageSpec[Seq[PowBlock]] {
    override val messageName: String = "PowBlocks"
 
    override def toBytes(obj: Seq[PowBlock]): Array[MessageCode] = {
-      obj.foldLeft(Array(obj.size.toByte)) {
-         (acc, el) => acc ++ PowBlockCompanion.toBytes(el)
-      }
+      obj.foldLeft(Array.emptyByteArray) { (acc, el) => acc ++ PowBlockCompanion.toBytes(el) }
    }
 
    override def parseBytes(bytes: Array[MessageCode]): Try[Seq[PowBlock]] = Try {
-      // byte.head consists count of objects in bytearray, other is serialized objects.
-      val byteSize = bytes.tail.length / bytes.head
-      val blocks = Seq[PowBlock]()
-      var offset = 1
-      while (offset < bytes.length - 1) {
-         blocks :+ PowBlockCompanion.parseBytes(bytes.slice(offset, offset + byteSize)).getOrElse()
-         offset = offset + byteSize
+      val blocks = mutable.ArrayBuffer[PowBlock]()
+      var offset = 0
+      while (offset < bytes.length) {
+         blocks.append(PowBlockCompanion.parseBytes(bytes.slice(offset, offset + PowBlock.powBlockSize)).get)
+         offset = offset + PowBlock.powBlockSize
       }
       blocks
    }
 }
 
 
-class FullBlockChainRequestSpec extends MessageSpec[String] {
+class FullBlockChainRequestSpec extends MessageSpec[Unit] {
    override val messageCode: MessageCode = 99.byteValue()
    override val messageName: String = "Blockchain"
 
-   override def toBytes(obj: String): Array[MessageCode] = obj.getBytes
+   override def toBytes(obj: Unit): Array[MessageCode] = Array()
 
-   override def parseBytes(bytes: Array[MessageCode]): Try[String] = Try { String.valueOf(bytes) }
+   override def parseBytes(bytes: Array[MessageCode]): Try[Unit] =
+      Try(require(bytes.isEmpty, "Non-empty data for Blockchain Download Signal"))
+
 }
 
 class EndDownloadSpec extends MessageSpec[String] {
@@ -82,6 +81,6 @@ class EndDownloadSpec extends MessageSpec[String] {
 
    override def toBytes(obj: String): Array[MessageCode] = obj.getBytes
 
-   override def parseBytes(bytes: Array[MessageCode]): Try[String] = Try { String.valueOf(bytes) }
+   override def parseBytes(bytes: Array[MessageCode]): Try[String] = Try { Strings.fromByteArray(bytes) }
 }
 
