@@ -33,7 +33,7 @@ import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetNodeViewChang
 import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
 import scorex.core.network.NetworkController.ReceivableMessages.{RegisterMessagesHandler, SendToNetwork, SubscribePeerManagerEvent}
 import scorex.core.network.NetworkControllerSharedMessages.ReceivableMessages.DataFromPeer
-import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
+import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.{ChangedHistory, NodeViewHolderEvent}
 import scorex.core.network._
 import scorex.core.network.message.{Message, MessageSpec, ModifiersSpec, SyncInfoMessageSpec}
 import scorex.core.network.peer.PeerManager.ReceivableMessages.GetConnectedPeers
@@ -76,7 +76,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
 
    override def preStart(): Unit = {
       //register as a handler for synchronization-specific types of messages
-      val messageSpecs = Seq(invSpec, requestModifierSpec, ModifiersSpec, syncInfoSpec)
+      val messageSpecs = Seq(invSpec, powBlockMessageSpec, requestModifierSpec, ModifiersSpec, syncInfoSpec)
       networkControllerRef ! RegisterMessagesHandler(messageSpecs, self)
 
       val pmEvents  = Seq(
@@ -100,7 +100,8 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       viewHolderRef ! Subscribe(vhEvents)
 
       val aeneasEvents = Seq(
-         AeneasNodeViewHolder.NodeViewEvent.PreStartDownloadRequest
+         AeneasNodeViewHolder.NodeViewEvent.PreStartDownloadRequest,
+         AeneasNodeViewHolder.NodeViewEvent.UpdateHistory
       )
 
       viewHolderRef ! AeneasSubscribe(aeneasEvents)
@@ -144,7 +145,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
      * // TODO: Check of well-known status?
      */
    def onDownloadRequestReceived : Receive = {
-      case DataFromPeer(spec, request, remotePeer) =>
+      case DataFromPeer(spec, request : Unit@unchecked, remotePeer) =>
          if (spec.messageCode == chainSpec.messageCode) {
             log.debug(s"AeneasSynchronizer : Download blockchain request received from ${remotePeer.socketAddress.toString}")
 
@@ -159,7 +160,6 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                case None =>
             }
          }
-      case _ =>
    }
 
    /**
@@ -175,28 +175,37 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
 
    /** It handles `PreStartDownloadRequest` was sent from peer which begins its work. */
    def onDownloadReceive : Receive = {
-      case DataFromPeer(spec, block, remotePeer) =>
-         block match {
-            case b : PowBlock =>
-               if (spec.messageCode == powBlockMessageSpec.messageCode) {
-                  log.debug(s"Block was received : ${b.encodedId}")
-                  historyReaderOpt match {
-                     case Some (history) =>
-                        val historyReader = history.asInstanceOf[AeneasHistory]
-                        log.debug(s"History was read, it`s height : ${historyReader.height}")
-                        historyReader.append(b)
-                        sendRequestToDownloader(b.modifierTypeId, b.parentId, remotePeer)
-                     case None =>
-                  }
-               }
-            case _ =>
+      case DataFromPeer(spec, block : PowBlock@unchecked, remotePeer) =>
+         if (spec.messageCode == powBlockMessageSpec.messageCode) {
+            log.debug(s"Block was received : ${block.encodedId}")
+            historyReaderOpt match {
+               case Some (history) =>
+                  val historyReader = history.asInstanceOf[AeneasHistory]
+                  log.debug(s"History was read, it`s height : ${historyReader.height}")
+                  historyReader.append(block)
+                  sendRequestToDownloader(block.modifierTypeId, block.parentId, remotePeer)
+               case None =>
+                  log.debug(s"Can`t read history, some hell happens")
+            }
+         }
+         else log.debug(s"Incorrect spec : ${spec.messageCode}, name : ${spec.messageName}")
+   }
+
+   /** It handles `СhangedHistory` was sent after mining start. */
+   def onChangedHistory : Receive = {
+      case ChangedHistory(reader) =>
+         reader match {
+            case history: HR =>
+               log.debug(s"Synchronizer : successfully updated history reader.")
+               historyReaderOpt = Some(history)
+            case _ => throw new ClassCastException(s"Can't cast ${reader.getClass.toString} to ${AeneasHistory.toString} ")
          }
       case _ =>
    }
 
 
    override protected def viewHolderEvents: Receive =
-         onDownloadRequest orElse
+      onDownloadRequest orElse
          onDownloadReceive orElse
          super.viewHolderEvents
 
@@ -204,6 +213,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
       onDownloadRequest orElse
          onDownloadRequestReceived orElse
          onDownloadReceive orElse
+         onChangedHistory orElse
          getLocalSyncInfo orElse
          processSync orElse
          processSyncStatus orElse

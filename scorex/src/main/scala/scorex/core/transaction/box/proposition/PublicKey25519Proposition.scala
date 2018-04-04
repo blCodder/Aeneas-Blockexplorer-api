@@ -15,9 +15,10 @@ case class PublicKey25519Proposition(pubKeyBytes: PublicKey) extends ProofOfKnow
 
   import PublicKey25519Proposition._
 
+  private def addressPrefix = "Æx".getBytes("UTF-8")
   private def bytesWithVersion: Array[Byte] = AddressVersion +: pubKeyBytes
 
-  lazy val address: String = Base58.encode(bytesWithVersion ++ calcCheckSum(bytesWithVersion))
+  lazy val address: String = Base58.encode(addressPrefix ++ bytesWithVersion ++ calcCheckSum(bytesWithVersion))
 
   override def toString: String = address
 

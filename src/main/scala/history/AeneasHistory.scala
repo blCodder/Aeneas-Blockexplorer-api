@@ -296,8 +296,6 @@ object AeneasHistory extends ScorexLogging {
       val blockStorage = new LSMStore(iFile, maxJournalEntryCount = 10000)
 
       val storage = new AeneasHistoryStorage(blockStorage, settings)
-      if (storage.height == 0)
-         None
 
       Runtime.getRuntime.addShutdownHook(new Thread() {
          override def run(): Unit = {
