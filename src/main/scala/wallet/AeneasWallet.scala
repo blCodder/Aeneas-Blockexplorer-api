@@ -30,7 +30,7 @@ case class AeneasWallet(seed: ByteStr, store: LSMStore)
    override type S = PrivateKey25519
    override type PI = PublicKey25519Proposition
 
-   private val SecretsKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(store.keySize)(2: Byte))
+   private val SecretsKey: ByteArrayWrapper = ByteArrayWrapper(seed.arr.take(store.keySize))//Array.fill(store.keySize)(2: Byte))
 
    private val BoxIdsKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(store.keySize)(1: Byte))
 

@@ -61,7 +61,7 @@ class SimpleBlockChain(loadSettings: LoadSettings, actorSystem0: ActorSystem) ex
          new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL] (networkControllerRef,
             nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
 
-   new WsServerRunner(miner, simpleSettings).run
+   new WsServerRunner(miner, nodeViewHolderRef, simpleSettings).run
    /**
      * API description in openapi format in YAML or JSON
      */

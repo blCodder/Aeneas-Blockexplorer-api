@@ -40,7 +40,9 @@ trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLoggi
           Future.successful(x).map { ev =>
             TextMessage.Strict(mapAccountEventsToMessage(ev).asJson.noSpaces)
           }
-        case event@(NewAccountEvents.GetSavedSeeds() | NewAccountEvents.Logout(_) | NewAccountEvents.SignIn (_, _)) =>
+        case event@(NewAccountEvents.GetSavedSeeds() |
+                    NewAccountEvents.GetSeedWithAddress(_)|
+                    NewAccountEvents.Logout(_) | NewAccountEvents.SignIn (_, _)) =>
           askActor[NewAccountEvents.NewAccountEvent](loginActor, event)
             .map{x =>
               TextMessage.Strict (mapAccountEventsToMessage(x).asJson.noSpaces)
@@ -64,17 +66,24 @@ trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLoggi
         Seed(gs.seed)
       case NewAccountEvents.GeneratedSeed(None) =>
         ErrorResponse("data isn't correct key-pair")
-      case NewAccountEvents.ReceivedPassword(_) =>
+      case NewAccountEvents.ReceivedPassword(seed, _) =>
+        nodeViewHolder ! LoggedIn(seed.seed)
         PwdConfirmed()
       case NewAccountEvents.ErrorEvent(msg) =>
         ErrorResponse(msg)
       case NewAccountEvents.Logout(seed) =>
+        nodeViewHolder ! Logout(seed)
         Logout(seed)
       case NewAccountEvents.ImportAccont(phrase) =>
         ImportAccont(phrase)
       case NewAccountEvents.ReturnSavedSeeds(seeds) =>
         SavedSeeds(seeds)
-      case _ =>
+      case NewAccountEvents.SignUpCancelled() =>
+        CancelSignUp()
+      case NewAccountEvents.ReturnSeedWithAddress(seed) =>
+        ReturnSeedWithAddress(seed)
+      case fail =>
+        log.debug(s"failed:$fail")
         ErrorResponse("unknown event")
     }
   }
@@ -100,16 +109,20 @@ trait SignUpService extends ActorHelper with PowBlocksBroadcast with ScorexLoggi
           case cpp@ConfirmPassPhrase(_) =>
             NewAccountEvents.ConfirmPassPhrase(cpp.passphrase)
           case slp@SetLocalPass(p1, p2) if p1 == p2 =>
-            NewAccountEvents.ReceivedPassword(slp.password)
+            NewAccountEvents.ReceivedPassword(SeedWithAddress("", ""), slp.password)
           case SetLocalPass(_, _) =>
             NewAccountEvents
               .ErrorEvent("password equals not confirmation password")
           case login:Login =>
             NewAccountEvents.SignIn(login.seed, login.pwd)
+          case Logout(seed) =>
+            NewAccountEvents.Logout(seed)
           case ia@ImportAccont(_) =>
             NewAccountEvents.ImportAccont(ia.passPhrase)
           case GetSavedSeeds() =>
             NewAccountEvents.GetSavedSeeds()
+          case GetSeedWithAddress(seed) =>
+            NewAccountEvents.GetSeedWithAddress(seed)
           case _ =>
             NewAccountEvents.ErrorEvent("unknown message type")
         }

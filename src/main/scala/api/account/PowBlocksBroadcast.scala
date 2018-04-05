@@ -17,6 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 trait PowBlocksBroadcast extends ActorHelper {
   protected def miner:ActorRef
+  protected def nodeViewHolder:ActorRef
   protected def aeneasSettings: AeneasSettings
   protected implicit def system: ActorSystem
   protected implicit def executionContext: ExecutionContext

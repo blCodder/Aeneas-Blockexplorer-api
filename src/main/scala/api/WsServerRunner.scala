@@ -21,7 +21,7 @@ import akka.http.scaladsl.server.Directives._
   * @author luger. Created on 09.03.18.
   * @version ${VERSION}
   */
-class WsServerRunner(miner:ActorRef, aeneasSettings: AeneasSettings)(implicit system:ActorSystem){
+class WsServerRunner(miner:ActorRef, nodeViewHolderRef:ActorRef, aeneasSettings: AeneasSettings)(implicit system:ActorSystem){
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
 
@@ -38,7 +38,7 @@ class WsServerRunner(miner:ActorRef, aeneasSettings: AeneasSettings)(implicit sy
 
 
   def run = {
-    val wsApi = new SignUpApi(miner, aeneasSettings, storage)
+    val wsApi = new SignUpApi(miner, nodeViewHolderRef, aeneasSettings, storage)
     val static = new StaticRoutes(aeneasSettings)
     val addr = aeneasSettings.wsApiSettings.bindAddress
     val bind = Http().bindAndHandle(wsApi.route ~ static.generate, addr.getHostName, addr.getPort)//, connectionContext = ServerContext(aeneasSettings).context) TODO add correct wss support
