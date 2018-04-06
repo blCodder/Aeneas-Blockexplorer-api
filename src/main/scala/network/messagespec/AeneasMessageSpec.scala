@@ -19,7 +19,7 @@ package network.messagespec
 import block.{PowBlock, PowBlockCompanion}
 import org.bouncycastle.util.Strings
 import scorex.core.network.message.Message.MessageCode
-import scorex.core.network.message.MessageSpec
+import scorex.core.network.message.{InvSpec, MessageSpec}
 
 import scala.collection.mutable
 import scala.util.Try
@@ -30,7 +30,7 @@ import scala.util.Try
   */
 
 /**
-  * * Message specification for `PowBlock`
+  * * Message specification for genesis and last `PowBlock`'s
   */
 class PoWBlockMessageSpec extends MessageSpec[PowBlock] {
    override val messageCode: MessageCode = 102.byteValue()
@@ -72,7 +72,11 @@ class FullBlockChainRequestSpec extends MessageSpec[Unit] {
 
    override def parseBytes(bytes: Array[MessageCode]): Try[Unit] =
       Try(require(bytes.isEmpty, "Non-empty data for Blockchain Download Signal"))
+}
 
+class DownloadInvSpec (maxInvObjects : Int) extends InvSpec(maxInvObjects) {
+   override val messageCode: MessageCode = 56.byteValue()
+   override val messageName: String = "DownloadInv"
 }
 
 class EndDownloadSpec extends MessageSpec[String] {

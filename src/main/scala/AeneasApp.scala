@@ -2,7 +2,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import network.AeneasNetwork
-import network.messagespec.{EndDownloadSpec, FullBlockChainRequestSpec, PoWBlockMessageSpec, PoWBlocksMessageSpec}
+import network.messagespec._
 import scorex.core.api.http.{ApiRoute, CompositeHttpService}
 import scorex.core.mainviews.{NodeViewHolder, PersistentNodeViewModifier}
 import scorex.core.network.{NetworkController, UPnP}
@@ -73,7 +73,8 @@ trait AeneasApp extends ScorexLogging {
       val blockMessageSpec = new PoWBlockMessageSpec
       val batchMessageSpec = new PoWBlocksMessageSpec
       val endDownloadSpec = new EndDownloadSpec
-      Seq (chainSpec, blockMessageSpec, batchMessageSpec, endDownloadSpec)
+      val invSpec = new DownloadInvSpec(settings.network.maxInvObjects)
+      Seq (chainSpec, blockMessageSpec, batchMessageSpec, endDownloadSpec, invSpec)
    }
 
    lazy val combinedRoute = CompositeHttpService(actorSystem, apiRoutes, settings.restApi, swaggerConfig).compositeRoute

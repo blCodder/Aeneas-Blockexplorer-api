@@ -17,7 +17,7 @@
 package history.storage
 
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
-import com.google.common.primitives.{Ints, Longs}
+import com.google.common.primitives.Longs
 import commons.SimpleBoxTransaction
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.core.ModifierId
@@ -91,14 +91,20 @@ class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) 
          case _ => Seq()
       }
 
-      storage.update(
-         ByteArrayWrapper(b.id),
-         Seq(),
-         blockDiff ++ blockH ++ bestBlockSeq ++ Seq(ByteArrayWrapper(b.id) -> ByteArrayWrapper(typeByte +: b.bytes)))
+      if (!storage.versionIDExists(ByteArrayWrapper(b.id))) {
+         storage.update(
+            ByteArrayWrapper(b.id),
+            Seq(),
+            blockDiff ++ blockH ++ bestBlockSeq ++ Seq(ByteArrayWrapper(b.id) -> ByteArrayWrapper(typeByte +: b.bytes)))
 
-      val check = storage.lastVersionID.getOrElse(-1L)
-      log.debug(s"History.storage bestId : ${bestBlock.encodedId}")
-      Option(b.asInstanceOf[PowBlock])
+         val check = storage.lastVersionID.getOrElse(-1L)
+         log.debug(s"History.storage bestId : ${bestBlock.encodedId}")
+         Option(b.asInstanceOf[PowBlock])
+      }
+      else {
+         log.debug(s"Block ${b.encodedId} already exists!")
+         Option(bestBlock)
+      }
    }
 
    def getPoWDifficulty(idOpt: Option[ModifierId]): BigInt = {
@@ -136,9 +142,9 @@ class AeneasHistoryStorage(storage : LSMStore, settings : SimpleMiningSettings) 
    }
 
    def isGenesis(b: AeneasBlock): Boolean = b match {
-         case block: PowBlock => block.parentId.sameElements (settings.GenesisParentId)
+         case block: PowBlock => block.parentId.deep == settings.GenesisParentId.deep
          case _ => false
-      }
+   }
 
    private def blockDiffKey(blockId: Array[Byte]): ByteArrayWrapper =
       ByteArrayWrapper(Sha256(s"difficulties".getBytes ++ blockId))
