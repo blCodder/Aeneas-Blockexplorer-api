@@ -22,7 +22,7 @@ val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.+",
   "net.databinder.dispatch" %% "dispatch-core" % "+" % "test",
-  "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test",
+  "com.dimafeng" %% "testcontainers-scala" % "0.16.0" % "test",
 )
 
 val loggingDependencies = Seq(
