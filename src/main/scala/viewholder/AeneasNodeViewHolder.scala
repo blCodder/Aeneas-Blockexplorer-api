@@ -155,6 +155,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          if (synchronizerStatus.get() && minerStatus.get()) {
             notifyAeneasSubscribers(NodeViewEvent.PreStartDownloadRequest, PreStartDownloadRequest)
             notifyAeneasSubscribers(NodeViewEvent.StopMining, StopMining)
+            nodeView._1.downloadProcess.compareAndSet(false, true)
             notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history()))
             synchronizerStatus.compareAndSet(true, false)
             minerStatus.compareAndSet(true, false)
@@ -166,7 +167,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          hisReader match {
            case Some(reader) =>
               updateNodeView(hisReader, None, None, None)
-              prestartDownloadEnded.getAndSet(true) //TODO set to false in DownloadStartAgain
+              nodeView._1.downloadProcess.compareAndSet(true, false)
               if (nodeView._3.nonEmpty) notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)// check Vault
            case None =>
                self ! NotifySubscribersOnRestore
