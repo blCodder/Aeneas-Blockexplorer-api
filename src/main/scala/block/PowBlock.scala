@@ -15,7 +15,9 @@ import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Blake2b256
 import scorex.crypto.signatures.{Curve25519, PublicKey}
 import settings.SimpleMiningSettings
-
+import io.circe._
+import io.circe.syntax._
+import io.circe.parser._
 import scala.annotation.tailrec
 import scala.util.Try
 
@@ -98,7 +100,7 @@ case class PowBlock(override val parentId: BlockId,
       "timestamp" -> timestamp.asJson,
       "nonce" -> nonce.asJson,
       "merkleRoot" -> Base58.encode(merkleRoot).asJson,
-      "transactions" -> transactionPool.map(tx => Base58.encode(tx).asJson)
+      "transactions" -> transactionPool.map(tx => Base58.encode(tx)).asJson
    ).asJson
 
    override lazy val toString: String = s"PoWBlock(${json.noSpaces})"
