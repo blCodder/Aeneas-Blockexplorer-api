@@ -24,6 +24,7 @@ import commons.SimpleBoxTransactionMemPool
 import history.AeneasHistory
 import history.storage.AeneasHistoryStorage
 import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
+import scorex.core.ModifierId
 import scorex.core.block.Block.BlockId
 import scorex.core.mainviews.NodeViewHolder.CurrentView
 import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
@@ -53,7 +54,6 @@ class Miner(viewHolderRef: ActorRef,
    private var clientInformatorRef : Option[ActorRef] = None
    private var cancellableOpt: Option[Cancellable] = None
    private val mining = new AtomicBoolean(false)
-//   private var mining = false
 
 
    override def preStart(): Unit = {
@@ -124,7 +124,6 @@ class Miner(viewHolderRef: ActorRef,
                }
             })
             p.future.onComplete { toBlock =>
-               log.info(s"New block precomplete time")
                toBlock.getOrElse(None).foreach { block =>
                   log.info(s"Locally generated PoW block: $block with difficulty $difficulty")
                   self ! block
@@ -179,11 +178,7 @@ object Miner extends App with ScorexLogging {
 
       val ts = System.currentTimeMillis()
 
-      val bHash = if (brothers.isEmpty)
-         Array.fill(32)(0: Byte)
-      else Blake2b256(PowBlockCompanion.brotherBytes(brothers))
-
-      val b = PowBlock(parentId, ts, nonce, brothers.size, bHash, proposition, brothers)
+      val b = PowBlock(parentId, ts, nonce, ModifierId @@ Array.emptyByteArray, proposition, Seq())
 
       val foundBlock =
          if (b.correctWork(difficulty, settings)) {

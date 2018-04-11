@@ -17,6 +17,10 @@ package object core {
 
   type ModifierId = ModifierId.Type
 
+  type MerkleHash = ModifierId.Type
+
+  type TxId = ModifierId.Type
+
   type VersionTag = VersionTag.Type
 
   def idsToString(ids: Seq[(ModifierTypeId, ModifierId)]): String = (ids.headOption, ids.lastOption) match {
