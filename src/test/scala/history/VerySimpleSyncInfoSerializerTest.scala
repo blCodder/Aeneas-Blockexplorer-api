@@ -19,41 +19,37 @@ class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
     val block1 = new PowBlock(
       settings.miningSettings.GenesisParentId,
       System.currentTimeMillis(),
-      1,
-      0,
-      Array.fill(32) (0 : Byte),
+      1L,
+      ModifierId @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
-      Seq()
+      Seq.empty
     )
 
     val block2 = new PowBlock(
       ModifierId @@ block1.id,
       System.currentTimeMillis(),
       2,
-      0,
-      Array.fill(32) (0 : Byte),
+      ModifierId @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
-      Seq()
+      Seq.empty
     )
 
     val block3 = new PowBlock(
       ModifierId @@ block2.id,
       System.currentTimeMillis(),
       3,
-      0,
-      Array.fill(32) (0 : Byte),
+      ModifierId @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
-      Seq()
+      Seq.empty
     )
 
     val block4 = new PowBlock(
       ModifierId @@ block3.id,
       System.currentTimeMillis(),
       4,
-      0,
-      Array.fill(32) (0 : Byte),
+      ModifierId @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
-      Seq()
+      Seq.empty
     )
 
     val blockSeq = Seq(block1, block2, block3, block4)
