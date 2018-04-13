@@ -153,6 +153,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    def handleIdleSignal : Receive = {
       case Idle =>
+         log.debug("Idle received")
          viewHolderRef ! DownloadEnded(historyReaderOpt)
    }
 

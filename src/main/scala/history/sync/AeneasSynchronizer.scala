@@ -186,8 +186,8 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                   historyReaderOpt match {
                      case Some (history) =>
                         val historyReader = history.asInstanceOf[AeneasHistory]
-                        historyReader.append(b)
                         log.debug(s"History was read, it`s height : ${historyReader.height}")
+                        historyReader.append(b)
                         sendRequestToDownloader(b.modifierTypeId, b.parentId, remotePeer)
                      case None =>
                   }

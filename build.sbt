@@ -60,6 +60,11 @@ libraryDependencies in ThisBuild ++= Seq(
 
 mainClass in assembly := Some("SimpleBlockChain")
 
+(test in Test) := {
+  assembly.value
+  (test in Test).value
+}
+
 test in assembly := {}//TODO
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard

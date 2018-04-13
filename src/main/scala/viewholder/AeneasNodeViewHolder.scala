@@ -96,6 +96,13 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       Some(history, minState, wallet, memPool)
    }
 
+   /**
+     * Restore a local view during a node startup.
+     * If no any stored view or other peers in network found, None is to be returned.
+     *
+     * If it is the first launch, history should be empty and
+     * specific signal will be send to synchronizer.
+     */
 
    def updateChainState() : Option[NodeView] = {
       self ! NotifySubscribersOnRestore
@@ -149,9 +156,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def onRestoreMessage : Receive = {
       case NotifySubscribersOnRestore =>
-         log.debug(s"OnRestore message was received with " +
-            s"sync : ${synchronizerStatus.get()} && " +
-            s"miner : ${minerStatus.get()}")
+         log.debug(
+           s"""OnRestore message was received with
+              |sync : ${synchronizerStatus.get()} &&
+              |miner : ${minerStatus.get()}
+            """.stripMargin)
          if (synchronizerStatus.get() && minerStatus.get()) {
             notifyAeneasSubscribers(NodeViewEvent.PreStartDownloadRequest, PreStartDownloadRequest)
             notifyAeneasSubscribers(NodeViewEvent.StopMining, StopMining)
@@ -168,6 +177,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
            case Some(reader) =>
               updateNodeView(hisReader, None, None, None)
               nodeView._1.downloadProcess.compareAndSet(true, false)
+              log.debug(s"vault value: ${nodeView._3}")
               if (nodeView._3.nonEmpty) notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)// check Vault
            case None =>
                self ! NotifySubscribersOnRestore
@@ -180,6 +190,10 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
             case Success(seedBytes) =>
                val newVault = AeneasWallet.readOrGenerate(settings, ByteStr(seedBytes), 1)
                updateNodeView(None, None, Option(newVault), None)
+               log.debug(
+                 s"""set new vault value: ${nodeView._3}
+                    |prestartDownloadEnded.get() : ${prestartDownloadEnded.get()}
+                  """.stripMargin)
                if (prestartDownloadEnded.get()) notifyAeneasSubscribers(NodeViewEvent.StartMining, StartMining)
             case _ =>
          }
@@ -225,12 +239,6 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
          sender() ! f(CurrentView(history(), minimalState(), vault(), memoryPool()))
    }
 
-/*
-   protected def onLoggedIn: Receive = {
-      case
-   }
-*/
-
    override def receive: Receive =
       onSynchronizerAlive orElse
          onMinerAlive orElse
@@ -267,7 +275,6 @@ object AeneasNodeViewHolder {
 
       // synchronizer events
       val PreStartDownloadRequest : NodeViewEvent.Value = Value(3)
-
       val UpdateHistory : NodeViewEvent.Value = Value(4)
    }
    case class AeneasSubscribe(minerEvents : Seq[NodeViewEvent.Value])
