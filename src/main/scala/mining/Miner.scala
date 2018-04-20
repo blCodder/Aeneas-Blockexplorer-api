@@ -19,24 +19,29 @@ package mining
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.{Actor, ActorRef}
+import akka.pattern.ask
+import akka.util.Timeout
 import block.{AeneasBlock, PowBlock, PowBlockCompanion, PowBlockHeader}
 import commons.SimpleBoxTransactionMemPool
 import history.AeneasHistory
 import history.storage.AeneasHistoryStorage
 import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
-import scorex.core.ModifierId
+import scorex.core.{MerkleHash, ModifierId}
 import scorex.core.block.Block.BlockId
 import scorex.core.mainviews.NodeViewHolder.CurrentView
-import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetDataFromCurrentView, GetNodeViewChanges}
 import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
-import scorex.crypto.hash.Blake2b256
+import scorex.crypto.authds.LeafData
+import scorex.crypto.authds.merkle.MerkleTree
+import scorex.crypto.hash.{Blake2b256, CryptographicHash, Digest32}
 import settings.SimpleMiningSettings
 import state.SimpleMininalState
 import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent}
 import wallet.AeneasWallet
 
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -54,11 +59,62 @@ class Miner(viewHolderRef: ActorRef,
    private var clientInformatorRef : Option[ActorRef] = None
    private var cancellableOpt: Option[Cancellable] = None
    private val mining = new AtomicBoolean(false)
+   private implicit val currentViewTimer: FiniteDuration = 5.millisecond
+   private implicit val timeoutView = new Timeout(currentViewTimer)
+   private implicit val cryptographicHash = Blake2b256
 
 
    override def preStart(): Unit = {
       viewHolderRef ! AeneasSubscribe(Seq(NodeViewEvent.StartMining, NodeViewEvent.StopMining))
       viewHolderRef ! MinerAlive
+   }
+
+   private def checkFitness(hash : String) : Int = hash.count(ch => ch == 'a')
+
+   @tailrec
+   private def mineBlock(firstBlockTry : PowBlock, tryCount : Int) : PowBlock = {
+      val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
+      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed().map(tx => tx.id)
+      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed)
+
+      Thread.sleep(settings.targetBlockDelay.toMillis)
+
+      val block = PowBlock(
+         firstBlockTry.parentId,
+         System.currentTimeMillis(),
+         firstBlockTry.nonce + 1,
+         tree.rootHash,
+         firstBlockTry.generatorProposition,
+         currentUnconfirmed
+      )
+      if (checkFitness(block.encodedId) > 0 || tryCount == settings.mineThreshold)
+         block
+      else mineBlock(block, tryCount + 1)
+   }
+
+   def powIteration(parentId: BlockId,
+                    difficulty: BigInt,
+                    settings: SimpleMiningSettings,
+                    proposition: PublicKey25519Proposition,
+                    blockGenerationDelay: FiniteDuration,
+                   ): Option[PowBlock] = {
+      val rand = Random.nextLong()
+      val nonce = if (rand > 0) rand else rand * -1
+      val ts = System.currentTimeMillis()
+
+      val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
+      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed().map(tx => tx.id)
+      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed)
+
+      val b : PowBlock = mineBlock(PowBlock(parentId, ts, nonce, tree.rootHash, proposition, Seq()), 0)
+
+      val foundBlock =
+         if (b.correctWork(difficulty, settings)) {
+            Some(b)
+         } else {
+            None
+         }
+      foundBlock
    }
 
    //noinspection ScalaStyle
@@ -100,7 +156,7 @@ class Miner(viewHolderRef: ActorRef,
             val difficulty = pmi.powDifficulty
             val bestPowBlock = pmi.bestPowBlock
 
-            val (parentId, brothers) = (bestPowBlock.id, Seq()) //new step
+            val parentId = bestPowBlock.id //new step
             log.info(s"Starting new block mining for ${bestPowBlock.encodedId}")
 
             val pubkey = pmi.pubkey
@@ -112,7 +168,7 @@ class Miner(viewHolderRef: ActorRef,
                   var attemps = 0
 
                   while (status.nonCancelled && foundBlock.isEmpty) {
-                     foundBlock = powIteration(parentId, brothers, difficulty, settings, pubkey, settings.blockGenDelay, storage)
+                     foundBlock = powIteration(parentId, difficulty, settings, pubkey, settings.blockGenDelay)
                      log.info(s"New block status : ${if (foundBlock.isDefined) "mined" else "in process"} at $attemps iteration")
                      attemps = attemps + 1
                      if (attemps % 100 == 99) {
@@ -151,6 +207,11 @@ class Miner(viewHolderRef: ActorRef,
 
 object Miner extends App with ScorexLogging {
 
+   def applyMempool(currentView: CurrentView[AeneasHistory,
+      SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool]) : SimpleBoxTransactionMemPool = {
+      currentView.pool
+   }
+
    sealed trait MinerEvent extends NodeViewHolderEvent
 
    case object MinerAlive extends NodeViewHolderEvent
@@ -164,31 +225,6 @@ object Miner extends App with ScorexLogging {
    case object MineBlock extends MinerEvent
 
    case class MiningInfo(powDifficulty: BigInt, bestPowBlock: PowBlock, pubkey: PublicKey25519Proposition) extends MinerEvent
-
-   def powIteration(parentId: BlockId,
-                    brothers: Seq[PowBlockHeader],
-                    difficulty: BigInt,
-                    settings: SimpleMiningSettings,
-                    proposition: PublicKey25519Proposition,
-                    blockGenerationDelay: FiniteDuration,
-                    storage : AeneasHistoryStorage
-                   ): Option[PowBlock] = {
-      val rand = Random.nextLong()
-      val nonce = if (rand > 0) rand else rand * -1
-
-      val ts = System.currentTimeMillis()
-
-      val b = PowBlock(parentId, ts, nonce, ModifierId @@ Array.emptyByteArray, proposition, Seq())
-
-      val foundBlock =
-         if (b.correctWork(difficulty, settings)) {
-            Some(b)
-         } else {
-            None
-         }
-      Thread.sleep(blockGenerationDelay.toMillis)
-      foundBlock
-   }
 
    def getRequiredData: GetDataFromCurrentView[AeneasHistory,
      SimpleMininalState,

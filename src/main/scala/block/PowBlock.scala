@@ -9,15 +9,14 @@ import scorex.core.block.Block.{BlockId, Version}
 import scorex.core.mainviews.NodeViewModifier
 import scorex.core.serialization.{JsonSerializable, Serializer}
 import scorex.core.transaction.Transaction
-import scorex.core.transaction.box.proposition.{PublicKey25519Proposition, PublicKey25519PropositionSerializer}
-import scorex.core.{MerkleHash, ModifierId, ModifierTypeId, TxId}
+import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.core.utils.ScorexLogging
+import scorex.core._
 import scorex.crypto.encode.Base58
-import scorex.crypto.hash.Blake2b256
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import scorex.crypto.signatures.{Curve25519, PublicKey}
-import settings.SimpleMiningSettings
-import io.circe._
-import io.circe.syntax._
-import io.circe.parser._
+import _root_.settings.SimpleMiningSettings
+
 import scala.annotation.tailrec
 import scala.util.Try
 
@@ -54,16 +53,15 @@ class PowBlockHeader( val parentId: BlockId,
 
 // 112 bytes as well.
 object PowBlockHeader {
-   val PowHeaderSize = NodeViewModifier.ModifierIdSize + 8 * 2 + 4 + Blake2b256.DigestSize + Curve25519.KeyLength
+   val PowHeaderSize = NodeViewModifier.ModifierIdSize * 2 + 8 * 2 + Curve25519.KeyLength // 96 + 16 = 112
 
    // 4 + 32 = 36 bytes was throwed out
-   //
    def parse(bytes: Array[Byte]): Try[PowBlockHeader] = Try {
       require(bytes.length == PowHeaderSize)
       val parentId = ModifierId @@ bytes.slice(0, 32)
       val timestamp = Longs.fromByteArray(bytes.slice(32, 40))
       val nonce = Longs.fromByteArray(bytes.slice(40, 48))
-      val merkleRoot = ModifierId @@ bytes.slice(48, 80)
+      val merkleRoot = Digest32 @@ bytes.slice(48, 80)
       val prop = PublicKey25519Proposition(PublicKey @@ bytes.slice(80, 112))
 
       new PowBlockHeader(parentId, timestamp, nonce, merkleRoot, prop)
@@ -109,28 +107,24 @@ case class PowBlock(override val parentId: BlockId,
    override def transactions: Seq[SimpleBoxTransaction] = ???
 }
 
-object PowBlockCompanion extends Serializer[PowBlock] {
+object PowBlockCompanion extends Serializer[PowBlock] with ScorexLogging {
 
    override def toBytes(modifier: PowBlock): Array[Byte] =
       modifier.headerBytes ++ modifier.generatorProposition.bytes
 
    override def parseBytes(bytes: Array[Byte]): Try[PowBlock] = Try {
       // sizes of block parts
-      val powHeaderSize = PowBlockHeader.PowHeaderSize
-      val txOffset = PowBlockHeader.PowHeaderSize + Curve25519.KeyLength
-
-      val headerBytes = bytes.slice(0, powHeaderSize)
+      val txOffset = PowBlockHeader.PowHeaderSize
+      val headerBytes = bytes.slice(0, txOffset)
       val header = PowBlockHeader.parse(headerBytes).get
-      val prop = PublicKey25519PropositionSerializer.parseBytes(bytes.slice(powHeaderSize, txOffset)).get
-      val txs = extractTransactionIds(bytes.slice(txOffset, bytes.length), Seq(), 0)
-
+      val txs = extractTransactionIds(bytes.slice(txOffset, bytes.length), Seq.empty, 0)
 
       PowBlock(
          header.parentId,
          header.timestamp,
          header.nonce,
          header.merkleRoot,
-         prop,
+         header.generatorProposition,
          txs
       )
    }

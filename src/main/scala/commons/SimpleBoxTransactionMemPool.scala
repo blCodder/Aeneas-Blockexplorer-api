@@ -23,6 +23,8 @@ case class SimpleBoxTransactionMemPool(unconfirmed: TrieMap[ByteArrayWrapper, Si
 
   override def getAll(ids: Seq[ModifierId]): Seq[SimpleBoxTransaction] = ids.flatMap(getById)
 
+  def getUnconfirmed() : Seq[SimpleBoxTransaction] = unconfirmed.values.toSeq
+
   //modifiers
   override def put(tx: SimpleBoxTransaction): Try[SimpleBoxTransactionMemPool] = Success {
     unconfirmed.put(key(tx.id), tx)
@@ -51,6 +53,8 @@ case class SimpleBoxTransactionMemPool(unconfirmed: TrieMap[ByteArrayWrapper, Si
     }
     this
   }
+
+  def removeTransaction(txId : ModifierId) = unconfirmed.remove(ByteArrayWrapper(txId))
 
   override def size: Int = unconfirmed.size
 }

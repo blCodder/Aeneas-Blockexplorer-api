@@ -4,6 +4,7 @@ import block.PowBlock
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
+import scorex.crypto.hash.Digest32
 import settings.AeneasSettings
 
 /**
@@ -26,7 +27,7 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         ModifierId @@ Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (0 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -44,7 +45,7 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         ModifierId @@ Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (0 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -53,7 +54,7 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         ModifierId @@ Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (0 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -62,7 +63,7 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         ModifierId @@ Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (0 : Byte),
          genesisAccount._2,
          Seq()
       )
