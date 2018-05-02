@@ -66,6 +66,7 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
      */
    override def append(block: AeneasBlock): Try[(AeneasHistory, History.ProgressInfo[AeneasBlock])] = Try {
       log.info(s"Trying to append block ${Base58.encode(block.id)} to history")
+      if (height > 0) log.info(s"Blocks time difference : ${block.timestamp - bestBlock().timestamp}")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
             log.warn(s"Failed to validate block ${Base58.encode(block.id)}")

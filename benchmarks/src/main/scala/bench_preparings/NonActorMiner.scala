@@ -2,6 +2,7 @@ package bench_preparings
 
 import akka.util.Timeout
 import block.PowBlock
+import commons.{SimpleBoxTransaction, SimpleBoxTransactionGenerator}
 import scorex.core.block.Block.BlockId
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.transaction.state.PrivateKey25519Companion
@@ -68,9 +69,9 @@ class NonActorMiner(settings: SimpleMiningSettings,
 
    @tailrec
    private def mineBlock(firstBlockTry : PowBlock, tryCount : Int) : PowBlock = {
-      val currentUnconfirmed : Seq[TxId] = generator.txPool.map(tx => tx.id)
+      val currentUnconfirmed : Seq[SimpleBoxTransaction] = generator.txPool
 
-      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed)
+      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
 
       val block = PowBlock(
          firstBlockTry.parentId,
@@ -111,9 +112,9 @@ class NonActorMiner(settings: SimpleMiningSettings,
       Thread.sleep(50)
 
       // id is already hashed transaction.
-      val currentUnconfirmed : Seq[TxId] = generator.txPool.map(tx => tx.id)
+      val currentUnconfirmed : Seq[SimpleBoxTransaction] = generator.txPool
 
-      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed)
+      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
       val b = mineBlock(PowBlock(parentId, ts, nonce, tree.rootHash, proposition, Seq()), 0)
 
       val foundBlock = if (b.correctWork(difficulty, settings))

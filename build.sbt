@@ -59,7 +59,6 @@ libraryDependencies in ThisBuild ++= Seq(
   "io.circe" %% "circe-generic-extras" % circeVersion,
   "org.bitlet" % "weupnp" % "0.1.+",
   "commons-net" % "commons-net" % "3.+"
-
 ) ++ testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
 
 mainClass in assembly := Some("SimpleBlockChain")

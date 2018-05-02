@@ -1,8 +1,7 @@
-package bench_preparings
+package commons
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import commons.{SimpleBoxTransaction, Value}
 import scorex.core.utils.ScorexLogging
 import wallet.AeneasWallet
 
@@ -22,7 +21,7 @@ class SimpleBoxTransactionGenerator(wallet: AeneasWallet) extends ScorexLogging 
    private val ex: ArrayBuffer[Array[Byte]] = ArrayBuffer()
    var txPool: ArrayBuffer[SimpleBoxTransaction] = ArrayBuffer()
 
-   private def generate(wallet: AeneasWallet): Try[SimpleBoxTransaction] = {
+   final def generate(wallet: AeneasWallet): Try[SimpleBoxTransaction] = {
       if (Random.nextInt(100) == 1)
          ex.clear()
       val pubkeys = wallet.publicKeys.toSeq
@@ -47,6 +46,17 @@ class SimpleBoxTransactionGenerator(wallet: AeneasWallet) extends ScorexLogging 
 
          Thread.sleep(duration.toMillis)
          generatingProcess(duration, count + 1)
+      }
+   }
+
+   @tailrec
+   final def syncGeneratingProcess(count : Int = 100) : ArrayBuffer[SimpleBoxTransaction] = {
+      if (count == 0) txPool
+      else {
+         val txGenerationTrying = generate(wallet)
+         if (txGenerationTrying.isSuccess)
+            txPool.append(txGenerationTrying.get)
+         syncGeneratingProcess(count - 1)
       }
    }
 }

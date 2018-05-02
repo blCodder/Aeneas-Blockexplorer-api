@@ -26,7 +26,7 @@ import commons.SimpleBoxTransactionMemPool
 import history.AeneasHistory
 import history.storage.AeneasHistoryStorage
 import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
-import scorex.core.{MerkleHash, ModifierId}
+import scorex.core.{MerkleHash, ModifierId, TxId}
 import scorex.core.block.Block.BlockId
 import scorex.core.mainviews.NodeViewHolder.CurrentView
 import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetDataFromCurrentView, GetNodeViewChanges}
@@ -42,6 +42,7 @@ import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent}
 import wallet.AeneasWallet
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -63,21 +64,33 @@ class Miner(viewHolderRef: ActorRef,
    private implicit val timeoutView = new Timeout(currentViewTimer)
    private implicit val cryptographicHash = Blake2b256
 
+   // Should equals to processor's ticks for this thread per 60 seconds.
+   // TODO: rework for each specific user machine processor frequency.
+   private val maxCycles = 215000
+
+   // Should equals to processor's ticks for this thread per 60 seconds.
+   private val minHashLiterals = 2
+   // Best fitness block if can't find any better.
+   var bestFitnessBlock : PowBlock = _
+
 
    override def preStart(): Unit = {
       viewHolderRef ! AeneasSubscribe(Seq(NodeViewEvent.StartMining, NodeViewEvent.StopMining))
       viewHolderRef ! MinerAlive
    }
 
-   private def checkFitness(hash : String) : Int = hash.count(ch => ch == 'a')
+   @tailrec
+   private def checkFitness(hash : String, hits : Int) : Int = {
+      if (hash.head == 'a')
+         checkFitness(hash.tail, hits + 1)
+      else hits
+   }
 
    @tailrec
    private def mineBlock(firstBlockTry : PowBlock, tryCount : Int) : PowBlock = {
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
-      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed().map(tx => tx.id)
-      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed)
-
-      Thread.sleep(settings.targetBlockDelay.toMillis)
+      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed()
+      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
 
       val block = PowBlock(
          firstBlockTry.parentId,
@@ -87,8 +100,19 @@ class Miner(viewHolderRef: ActorRef,
          firstBlockTry.generatorProposition,
          currentUnconfirmed
       )
-      if (checkFitness(block.encodedId) > 0 || tryCount == settings.mineThreshold)
+
+      val currentFitness = checkFitness(block.encodedId, 0)
+      if (currentFitness > minHashLiterals - 1)
+         bestFitnessBlock = block
+
+      if (checkFitness(block.encodedId, 0) > 2) {
          block
+      }
+      else if (tryCount == maxCycles) {
+         if (bestFitnessBlock == null)
+            block
+         else bestFitnessBlock
+      }
       else mineBlock(block, tryCount + 1)
    }
 
@@ -103,10 +127,10 @@ class Miner(viewHolderRef: ActorRef,
       val ts = System.currentTimeMillis()
 
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
-      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed().map(tx => tx.id)
-      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed)
+      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed()
+      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
 
-      val b : PowBlock = mineBlock(PowBlock(parentId, ts, nonce, tree.rootHash, proposition, Seq()), 0)
+      val b : PowBlock = mineBlock(PowBlock(parentId, ts, nonce, tree.rootHash, proposition, currentUnconfirmed), 0)
 
       val foundBlock =
          if (b.correctWork(difficulty, settings)) {
@@ -170,10 +194,6 @@ class Miner(viewHolderRef: ActorRef,
                   while (status.nonCancelled && foundBlock.isEmpty) {
                      foundBlock = powIteration(parentId, difficulty, settings, pubkey, settings.blockGenDelay)
                      log.info(s"New block status : ${if (foundBlock.isDefined) "mined" else "in process"} at $attemps iteration")
-                     attemps = attemps + 1
-                     if (attemps % 100 == 99) {
-                        log.debug(s"100 hashes tried, difficulty is $difficulty")
-                     }
                   }
                   p.success(foundBlock)
                   log.info(s"New block : ${foundBlock.get.encodedId}")
@@ -186,7 +206,6 @@ class Miner(viewHolderRef: ActorRef,
                }
             }
          }
-
 
       case b: PowBlock =>
          cancellableOpt.foreach(_.cancel())

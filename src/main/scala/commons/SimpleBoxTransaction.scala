@@ -96,9 +96,16 @@ case class SimpleBoxTransaction(from: IndexedSeq[(PublicKey25519Proposition, Non
     })
   }
 
+  def size() : Int = {
+    signatures.length * Curve25519.SignatureLength  // metainformation length && signatures length
+    + (Curve25519.KeyLength + 8) * from.length          // inputs length
+    + (Curve25519.KeyLength + 8) * to.length + 28
+  }
 }
 
 object SimpleBoxTransaction {
+
+  val theMostLessTxSize = 4 + 28
 
   implicit val simpleBoxEncoder: Encoder[SimpleBoxTransaction] =
     (sbe: SimpleBoxTransaction) => sbe.json
@@ -144,6 +151,7 @@ object SimpleBoxTransaction {
     val timestamp = System.currentTimeMillis()
     SimpleBoxTransaction(from.map(t => t._1 -> t._2), outputs, fee, timestamp)
   }
+
 }
 
 
@@ -151,13 +159,13 @@ object SimpleBoxTransactionSerializer extends Serializer[SimpleBoxTransaction] {
 
   override def toBytes(m: SimpleBoxTransaction): Array[Byte] = {
     Bytes.concat(Longs.toByteArray(m.fee),
-      Longs.toByteArray(m.timestamp),
-      Ints.toByteArray(m.signatures.length),
-      Ints.toByteArray(m.from.length),
-      Ints.toByteArray(m.to.length),
-      m.signatures.foldLeft(Array[Byte]())((a, b) => Bytes.concat(a, b.bytes)),
-      m.from.foldLeft(Array[Byte]())((a, b) => Bytes.concat(a, b._1.bytes, Longs.toByteArray(b._2))),
-      m.to.foldLeft(Array[Byte]())((a, b) => Bytes.concat(a, b._1.bytes, Longs.toByteArray(b._2)))
+         Longs.toByteArray(m.timestamp),
+         Ints.toByteArray(m.signatures.length),
+         Ints.toByteArray(m.from.length),
+         Ints.toByteArray(m.to.length),
+         m.signatures.foldLeft(Array[Byte]())((a, b) => Bytes.concat(a, b.bytes)),
+         m.from.foldLeft(Array[Byte]())((a, b) => Bytes.concat(a, b._1.bytes, Longs.toByteArray(b._2))),
+         m.to.foldLeft(Array[Byte]())((a, b) => Bytes.concat(a, b._1.bytes, Longs.toByteArray(b._2)))
     )
   }
 
@@ -170,6 +178,7 @@ object SimpleBoxTransactionSerializer extends Serializer[SimpleBoxTransaction] {
     val signatures = (0 until sigLength) map { i =>
       Signature25519(Signature @@ bytes.slice(28 + i * Curve25519.SignatureLength, 28 + (i + 1) * Curve25519.SignatureLength))
     }
+
     val s = 28 + sigLength * Curve25519.SignatureLength
     val elementLength = 8 + Curve25519.KeyLength
     val from = (0 until fromLength) map { i =>
@@ -177,6 +186,7 @@ object SimpleBoxTransactionSerializer extends Serializer[SimpleBoxTransaction] {
       val v = Longs.fromByteArray(bytes.slice(s + (i + 1) * elementLength - 8, s + (i + 1) * elementLength))
       (PublicKey25519Proposition(pk), Nonce @@ v)
     }
+
     val s2 = s + fromLength * elementLength
     val to = (0 until toLength) map { i =>
       val pk = PublicKey @@ bytes.slice(s2 + i * elementLength, s2 + (i + 1) * elementLength - 8)

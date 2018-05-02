@@ -18,8 +18,9 @@ package benchmarks
 
 import java.util.concurrent.TimeUnit
 
-import bench_preparings.{NonActorMiner, SimpleBoxTransactionGenerator}
+import bench_preparings.NonActorMiner
 import com.typesafe.config.ConfigFactory
+import commons.SimpleBoxTransactionGenerator
 import org.openjdk.jmh.annotations._
 import org.openjdk.jmh.infra.Blackhole
 import scorex.core.utils.ScorexLogging
