@@ -22,6 +22,7 @@ import org.bouncycastle.util.Strings
 import scorex.core.network.message.Message.MessageCode
 import scorex.core.network.message.{InvSpec, MessageSpec}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 
 /**
@@ -55,15 +56,15 @@ class PoWBlocksMessageSpec extends MessageSpec[Seq[PowBlock]] {
    }
 
    override def parseBytes(bytes: Array[MessageCode]): Try[Seq[PowBlock]] = Try {
-      val blocks = Seq[PowBlock]()
+      val blocks = ArrayBuffer[PowBlock]()
       var offset = 0
       while (offset < bytes.length) {
          val nextBlockSize = Ints.fromByteArray(bytes.slice(offset, offset + 4))
          offset = offset + 4
-         blocks :+ PowBlockCompanion.parseBytes(bytes.slice(offset, offset + nextBlockSize)).get
+         blocks.append(PowBlockCompanion.parseBytes(bytes.slice(offset, offset + nextBlockSize)).get)
          offset = offset + nextBlockSize
       }
-      blocks
+      blocks.toSeq
    }
 }
 

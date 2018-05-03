@@ -39,45 +39,45 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
       deserialized shouldEqual onlyBlock
    }
 
-//   test("Seq of PoW blocks with empty txPool + request spec serialize/deserialize correctly") {
-//      val settings = AeneasSettings.read()
-//      val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
-//
-//      val block1 = new PowBlock(
-//         settings.miningSettings.GenesisParentId,
-//         System.currentTimeMillis(),
-//         1 << 3,
-//         Digest32 @@ Array.fill(32) (0 : Byte),
-//         genesisAccount._2,
-//         Seq()
-//      )
-//
-//      val block2 = new PowBlock(
-//         ModifierId @@ block1.id,
-//         System.currentTimeMillis(),
-//         2 << 3,
-//         Digest32 @@ Array.fill(32) (0 : Byte),
-//         genesisAccount._2,
-//         Seq()
-//      )
-//
-//      val block3 = new PowBlock(
-//         ModifierId @@ block2.id,
-//         System.currentTimeMillis(),
-//         3 << 3,
-//         Digest32 @@ Array.fill(32) (0 : Byte),
-//         genesisAccount._2,
-//         Seq()
-//      )
-//
-//      val blockSeq = Seq(block1, block2, block3)
-//
-//      val powBlocksMessageSpec = new PoWBlocksMessageSpec()
-//      val serialized = powBlocksMessageSpec.toBytes(blockSeq)
-//      val deserialized = powBlocksMessageSpec.parseBytes(serialized).getOrElse(None)
-//
-//      deserialized shouldBe blockSeq
-//   }
+   test("Seq of PoW blocks with empty txPool + request spec serialize/deserialize correctly") {
+      val settings = AeneasSettings.read()
+      val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
+
+      val block1 = new PowBlock(
+         settings.miningSettings.GenesisParentId,
+         System.currentTimeMillis(),
+         10 << 30,
+         Digest32 @@ Array.fill(32) (1 : Byte),
+         genesisAccount._2,
+         Seq()
+      )
+
+      val block2 = new PowBlock(
+         ModifierId @@ block1.id,
+         System.currentTimeMillis(),
+         20 << 25,
+         Digest32 @@ Array.fill(32) (1 : Byte),
+         genesisAccount._2,
+         Seq()
+      )
+
+      val block3 = new PowBlock(
+         ModifierId @@ block2.id,
+         System.currentTimeMillis(),
+         18 << 22,
+         Digest32 @@ Array.fill(32) (1 : Byte),
+         genesisAccount._2,
+         Seq()
+      )
+
+      val blockSeq = Seq(block1, block2, block3)
+
+      val powBlocksMessageSpec = new PoWBlocksMessageSpec()
+      val serialized = powBlocksMessageSpec.toBytes(blockSeq)
+      val deserialized = powBlocksMessageSpec.parseBytes(serialized).getOrElse(None)
+
+      deserialized shouldBe blockSeq
+   }
 
    test("Seq of PoW blocks with various txs + request spec serialize/deserialize correctly") {
       val settings = AeneasSettings.read()
@@ -121,6 +121,7 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
       val serialized = powBlocksMessageSpec.toBytes(blockSeq)
       val deserialized : Seq[PowBlock] = powBlocksMessageSpec.parseBytes(serialized).get
 
+      blockSeq.length shouldBe deserialized.length
       blockSeq.zip(deserialized).foreach(el => el._1 shouldBe el._2)
    }
 }
