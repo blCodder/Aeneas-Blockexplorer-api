@@ -37,7 +37,7 @@ class NonActorMiner(settings: SimpleMiningSettings,
    private implicit val cryptographicHash = Blake2b256
 
    // Should equals to processor's ticks for this thread per 60 seconds.
-   private val maxCycles = 215000
+   private val maxCycles = 200000
 
    // Should equals to processor's ticks for this thread per 60 seconds.
    private val minHashLiterals = 2
@@ -109,7 +109,7 @@ class NonActorMiner(settings: SimpleMiningSettings,
       val nonce = if (rand > 0) rand else rand * -1
       val ts = System.currentTimeMillis()
       // Sleep for emulating of txPool update from actor.
-      Thread.sleep(50)
+      Thread.sleep(10)
 
       // id is already hashed transaction.
       val currentUnconfirmed : Seq[SimpleBoxTransaction] = generator.txPool
@@ -134,7 +134,6 @@ class NonActorMiner(settings: SimpleMiningSettings,
       log.info(s"Starting new block mining for ${bestPowBlock.encodedId}")
 
       val pubkey = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)._2
-      // TODO: Rewrite to the Futures + Await. (done)
       cancellableOpt = Future {
          var foundBlock: Option[PowBlock] = None
          while (foundBlock.isEmpty)

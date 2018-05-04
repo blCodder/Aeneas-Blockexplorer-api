@@ -21,28 +21,27 @@ import java.util.concurrent.atomic.AtomicBoolean
 import akka.actor.{Actor, ActorRef}
 import akka.pattern.ask
 import akka.util.Timeout
-import block.{AeneasBlock, PowBlock, PowBlockCompanion, PowBlockHeader}
-import commons.SimpleBoxTransactionMemPool
+import block.{AeneasBlock, PowBlock}
+import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
 import history.AeneasHistory
 import history.storage.AeneasHistoryStorage
 import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
-import scorex.core.{MerkleHash, ModifierId, TxId}
+import scorex.core.MerkleHash
 import scorex.core.block.Block.BlockId
 import scorex.core.mainviews.NodeViewHolder.CurrentView
-import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetDataFromCurrentView, GetNodeViewChanges}
+import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
 import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.NodeViewHolderEvent
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.authds.LeafData
 import scorex.crypto.authds.merkle.MerkleTree
-import scorex.crypto.hash.{Blake2b256, CryptographicHash, Digest32}
+import scorex.crypto.hash.{Blake2b256, Digest32}
 import settings.SimpleMiningSettings
 import state.SimpleMininalState
 import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent}
 import wallet.AeneasWallet
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -66,12 +65,15 @@ class Miner(viewHolderRef: ActorRef,
 
    // Should equals to processor's ticks for this thread per 60 seconds.
    // TODO: rework for each specific user machine processor frequency.
-   private val maxCycles = 215000
+   private val maxCycles = 200000
 
    // Should equals to processor's ticks for this thread per 60 seconds.
    private val minHashLiterals = 2
    // Best fitness block if can't find any better.
    var bestFitnessBlock : PowBlock = _
+
+   private var currentMemPool : SimpleBoxTransactionMemPool = null
+   private var currentUnconfirmed : Seq[SimpleBoxTransaction] = Seq()
 
 
    override def preStart(): Unit = {
@@ -86,17 +88,37 @@ class Miner(viewHolderRef: ActorRef,
       else hits
    }
 
-   @tailrec
-   private def mineBlock(firstBlockTry : PowBlock, tryCount : Int) : PowBlock = {
+   private def updateMempool(viewHolderRef : ActorRef) : SimpleBoxTransactionMemPool = {
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
-      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed()
-      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
+      Await.result(currentViewAwait, currentViewTimer)
+   }
+
+   @tailrec
+   private def mineBlock(firstBlockTry : PowBlock, activeMempool: SimpleBoxTransactionMemPool, tryCount : Int) : PowBlock = {
+      // Check goodness for first block trying.
+      if (checkFitness(firstBlockTry.encodedId, 0) > minHashLiterals && tryCount == 0)
+         return firstBlockTry
+
+      currentMemPool = activeMempool
+
+      if (tryCount % 100000 == 0) {
+         log.debug(s"Iteration #$tryCount")
+         currentMemPool = updateMempool(viewHolderRef)
+      }
+      currentUnconfirmed = currentMemPool.getUnconfirmed()
+      var hash : Digest32 = Digest32 @@ Array.fill(32) (1 : Byte)
+
+      if (currentUnconfirmed.nonEmpty) {
+         val tree: MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
+         log.debug(s"Root hash of Merkle tree : ${tree.rootHash}")
+         hash = tree.rootHash
+      }
 
       val block = PowBlock(
          firstBlockTry.parentId,
          System.currentTimeMillis(),
-         firstBlockTry.nonce + 1,
-         tree.rootHash,
+         Math.abs(Random.nextLong()),
+         hash,
          firstBlockTry.generatorProposition,
          currentUnconfirmed
       )
@@ -105,7 +127,7 @@ class Miner(viewHolderRef: ActorRef,
       if (currentFitness > minHashLiterals - 1)
          bestFitnessBlock = block
 
-      if (checkFitness(block.encodedId, 0) > 2) {
+      if (checkFitness(block.encodedId, 0) > minHashLiterals) {
          block
       }
       else if (tryCount == maxCycles) {
@@ -113,7 +135,7 @@ class Miner(viewHolderRef: ActorRef,
             block
          else bestFitnessBlock
       }
-      else mineBlock(block, tryCount + 1)
+      else mineBlock(block, activeMempool, tryCount + 1)
    }
 
    def powIteration(parentId: BlockId,
@@ -122,15 +144,23 @@ class Miner(viewHolderRef: ActorRef,
                     proposition: PublicKey25519Proposition,
                     blockGenerationDelay: FiniteDuration,
                    ): Option[PowBlock] = {
-      val rand = Random.nextLong()
-      val nonce = if (rand > 0) rand else rand * -1
+      val nonce = Math.abs(Random.nextLong())
       val ts = System.currentTimeMillis()
 
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
-      val currentUnconfirmed = Await.result(currentViewAwait, currentViewTimer).getUnconfirmed()
-      val tree : MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
+      currentMemPool = Await.result(currentViewAwait, currentViewTimer)
+      currentUnconfirmed = currentMemPool.getUnconfirmed()
+      log.debug(s"Current unconfirmed transaction pool size : ${currentUnconfirmed.size}")
 
-      val b : PowBlock = mineBlock(PowBlock(parentId, ts, nonce, tree.rootHash, proposition, currentUnconfirmed), 0)
+      var hash : Digest32 = Digest32 @@ Array.fill(32) (1 : Byte)
+
+      if (currentUnconfirmed.nonEmpty) {
+         val tree: MerkleTree[MerkleHash] = MerkleTree.apply(LeafData @@ currentUnconfirmed.map(tx => tx.id))
+         log.debug(s"Root hash of Merkle tree : ${tree.rootHash}")
+         hash = tree.rootHash
+      }
+
+      val b : PowBlock = mineBlock(PowBlock(parentId, ts, nonce, hash, proposition, currentUnconfirmed), currentMemPool, 0)
 
       val foundBlock =
          if (b.correctWork(difficulty, settings)) {

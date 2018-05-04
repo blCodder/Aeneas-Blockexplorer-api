@@ -28,12 +28,15 @@ class SimpleBoxTransactionGenerator(wallet: AeneasWallet) extends ScorexLogging 
       if (pubkeys.lengthCompare(10) < 0)
          wallet.generateNewSecret()
 
-      val recipients = scala.util.Random.shuffle(pubkeys).take(Random.nextInt(pubkeys.size))
-         .map(r => (r, Value @@ Random.nextInt(100).toLong))
+      if (pubkeys.nonEmpty) {
+         val recipients = scala.util.Random.shuffle(pubkeys).take(Random.nextInt(pubkeys.size))
+            .map(r => (r, Value @@ Random.nextInt(100).toLong))
 
-      val tx = SimpleBoxTransaction.create(wallet, recipients, Random.nextInt(100), ex)
-      tx.map(t => t.boxIdsToOpen.foreach(id => ex += id))
-      tx
+         val tx = SimpleBoxTransaction.create(wallet, recipients, Random.nextInt(100), ex)
+         tx.map(t => t.boxIdsToOpen.foreach(id => ex += id))
+         tx
+      }
+      else generate(wallet)
    }
 
    @tailrec
