@@ -2,13 +2,13 @@ package history
 
 import block.PowBlock
 import history.storage.AeneasHistoryStorage
-
 import history.sync.VerySimpleSyncInfo
 import io.iohk.iodb.LSMStore
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.consensus.History._
 import scorex.core.transaction.state.PrivateKey25519Companion
+import scorex.crypto.hash.Digest32
 import settings.AeneasSettings
 
 /**
@@ -18,18 +18,18 @@ import settings.AeneasSettings
 class SyncInfoComparingTest extends FunSuite with Matchers {
    test("SyncInfo : equal multiple elements compare test") {
       val settings = AeneasSettings.read()
-      // we need to create custom history storage because validators fails our blocks appending.
+      // we need to create custom history storage because validators fails our blocks appending...
       val testFile = TempDbHelper.mkdir
-      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 100), settings.miningSettings)
+      val storage = new AeneasHistoryStorage(new LSMStore(testFile, maxJournalEntryCount = 200), settings.miningSettings)
       var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
+      println("=====> " + genesisAccount._2.pubKeyBytes.length)
 
       val block1 = new PowBlock(
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 7,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -38,8 +38,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 7,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -48,8 +47,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 7,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -58,8 +56,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block3.id,
          System.currentTimeMillis(),
          4 << 7,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -94,8 +91,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -104,8 +100,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -114,8 +109,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -124,8 +118,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block3.id,
          System.currentTimeMillis(),
          4 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -134,8 +127,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block4.id,
          System.currentTimeMillis(),
          5 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -167,8 +159,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -177,8 +168,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -187,8 +177,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -197,8 +186,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block3.id,
          System.currentTimeMillis(),
          4 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -207,8 +195,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block4.id,
          System.currentTimeMillis(),
          5 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -238,8 +225,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -248,8 +234,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -258,8 +243,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -268,8 +252,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          4 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -278,8 +261,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          5 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          otherAccount._2,
          Seq()
       )
@@ -288,8 +270,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ otherBlock1.id,
          System.currentTimeMillis(),
          5 << 4,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          otherAccount._2,
          Seq()
       )
@@ -298,8 +279,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ otherBlock2.id,
          System.currentTimeMillis(),
          5 << 5,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          otherAccount._2,
          Seq()
       )
@@ -329,8 +309,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -339,8 +318,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -349,8 +327,7 @@ class SyncInfoComparingTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )

@@ -17,6 +17,7 @@
 package history
 
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 import block.{AeneasBlock, PowBlock}
 import history.storage.AeneasHistoryStorage
@@ -48,6 +49,8 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
    val height = storage.height
    var lastBlock : Option[PowBlock] = None
 
+   val downloadProcess = new AtomicBoolean(false)
+
    def genesis() : ModifierId = {
       storage.getGenesis() match {
          case Some(wrapper) =>
@@ -62,7 +65,8 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
      * @return append modifier to history
      */
    override def append(block: AeneasBlock): Try[(AeneasHistory, History.ProgressInfo[AeneasBlock])] = Try {
-      log.info(s"Trying to append block ${Base58.encode(block.id)} to history, $block")
+      log.info(s"Trying to append block ${Base58.encode(block.id)} to history")
+      if (height > 0) log.info(s"Blocks time difference : ${block.timestamp - bestBlock().timestamp}")
       validators.map(_.validate(block)).foreach {
          case Failure(e) =>
             log.warn(s"Failed to validate block ${Base58.encode(block.id)}")
@@ -73,7 +77,14 @@ class AeneasHistory(val storage: AeneasHistoryStorage,
          if (storage.isGenesis(block)) {
             storage.storeGenesis(block)
             lastBlock = storage.update(block, None, isBest = true)
-            log.info(s"History.append postappend length : ${storage.height}; bestPowId:${storage.bestPowId}")
+            log.info(s"History.append postappend length : ${storage.height}; bestPowId : ${Base58.encode(storage.bestPowId)}")
+            ProgressInfo(None, Seq(), Some(block), Seq())
+         } else if (downloadProcess.get()) {
+            if (storage.height <= 0)
+               lastBlock = storage.update(block, None, isBest = true)
+            else storage.update(block, None, isBest = false)
+
+            log.info(s"History unsafe append length : ${storage.height}; bestPowId : ${Base58.encode(storage.bestPowId)}")
             ProgressInfo(None, Seq(), Some(block), Seq())
          } else {
             storage.heightOf(block.parentId) match {
@@ -290,8 +301,6 @@ object AeneasHistory extends ScorexLogging {
       val blockStorage = new LSMStore(iFile, maxJournalEntryCount = 10000)
 
       val storage = new AeneasHistoryStorage(blockStorage, settings)
-      if (storage.height == 0)
-         None
 
       Runtime.getRuntime.addShutdownHook(new Thread() {
          override def run(): Unit = {

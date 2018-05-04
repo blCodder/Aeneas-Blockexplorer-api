@@ -1,12 +1,13 @@
-package scorex.core.network
+package scorex.network
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.InetSocketAddress
 
 import org.scalacheck.Gen
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{Matchers, PropSpec}
 import scorex.ObjectGenerators
 import scorex.core.app.Version
+import scorex.core.network.{Handshake, HandshakeSerializer}
 
 
 class HandshakeSpecification extends PropSpec
@@ -27,7 +28,6 @@ with ObjectGenerators {
        time: Long) =>
 
         whenever(appName.nonEmpty) {
-
           val h1 = Handshake(appName, av, nodeName, None, time)
           val hr1: Handshake = HandshakeSerializer.parseBytes(h1.bytes).get
           hr1.applicationName should be(h1.applicationName)

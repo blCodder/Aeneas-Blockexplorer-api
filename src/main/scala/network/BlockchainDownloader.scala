@@ -20,18 +20,19 @@ import akka.actor.{Actor, ActorRef}
 import block.PowBlock
 import history.AeneasHistory
 import network.BlockchainDownloader.{DownloadEnded, Idle, SendBlockRequest}
-import network.messagespec.{EndDownloadSpec, FullBlockChainRequestSpec, PoWBlocksMessageSpec}
+import network.messagespec.{DownloadInvSpec, EndDownloadSpec, PoWBlockMessageSpec, PoWBlocksMessageSpec}
 import scorex.core.mainviews.NodeViewHolder
 import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.{GetNodeViewChanges, Subscribe}
 import scorex.core.network.NetworkController.ReceivableMessages.{RegisterMessagesHandler, SendToNetwork}
 import scorex.core.network.NetworkControllerSharedMessages.ReceivableMessages.DataFromPeer
 import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.{ChangedHistory, NodeViewHolderEvent}
 import scorex.core.network.message.BasicMsgDataTypes.InvData
-import scorex.core.network.message.{Message, RequestModifierSpec}
-import scorex.core.network.{ConnectedPeer, NetworkController, SendToPeer}
+import scorex.core.network.message.{InvSpec, Message, MessageSpec}
+import scorex.core.network.{ConnectedPeer, SendToPeer}
 import scorex.core.settings.NetworkSettings
 import scorex.core.utils.ScorexLogging
 import scorex.core.{ModifierId, ModifierTypeId}
+import scorex.crypto.encode.Base58
 
 import scala.annotation.tailrec
 
@@ -41,18 +42,17 @@ import scala.annotation.tailrec
   */
 class BlockchainDownloader(networkControllerRef : ActorRef,
                            viewHolderRef : ActorRef,
-                           networkSettings: NetworkSettings) extends Actor with ScorexLogging {
+                           networkSettings: NetworkSettings,
+                           specs: Seq[MessageSpec[_]]) extends Actor with ScorexLogging {
 
-   protected val requestModifierSpec = new RequestModifierSpec(networkSettings.maxInvObjects)
+   protected val invSpec = new DownloadInvSpec(networkSettings.maxInvObjects)
    protected val batchMessageSpec = new PoWBlocksMessageSpec
-   protected val chainSpec = new FullBlockChainRequestSpec
    protected val endDownloadSpec = new EndDownloadSpec
 
    protected var historyReaderOpt: Option[AeneasHistory] = None
 
    override def preStart(): Unit = {
-      networkControllerRef !
-         RegisterMessagesHandler(Seq(chainSpec, endDownloadSpec, batchMessageSpec, requestModifierSpec), self)
+      networkControllerRef ! RegisterMessagesHandler(specs, self)
 
       val vhEvents = Seq(NodeViewHolder.EventType.HistoryChanged)
       viewHolderRef ! Subscribe(vhEvents)
@@ -60,15 +60,18 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
    }
 
    /**
+     * * New peer action *
      * Handles `SendBlockRequest` entity and sends request to download batch of blocks,
      * where first block is block with `id` identificator.
      */
    def onDownloadBlocks : Receive = {
       case SendBlockRequest(typeId, id, remotePeer) =>
+         log.debug(s" NEW PEER ACTION : Request to download portion of block with ${Base58.encode(id)} id from ${remotePeer.socketAddress} are forming")
          requestBlockToDownload(typeId, id, remotePeer)
    }
 
    /**
+     * * New peer action *
      * Makes request to well-known `peer` to download batch of blocks,
      * where first block is block with `id` identificator.
      * @param typeId
@@ -76,52 +79,72 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
      * @param peer
      */
    def requestBlockToDownload(typeId: ModifierTypeId, modifierId: ModifierId, peer : ConnectedPeer): Unit = {
-      val msg = Message(requestModifierSpec, Right(typeId -> Seq(modifierId)), None)
+      val msg = Message(invSpec, Right(typeId -> Seq(modifierId)), None)
+      log.debug(s"Receive request from ${peer.socketAddress} to download block with ${Base58.encode(modifierId)}")
       networkControllerRef ! SendToNetwork(msg, SendToPeer(peer))
+      log.debug(s" NEW PEER ACTION : Request to download portion of block was sent.")
+
       // TODO: track delivery
    }
 
    /**
+     * * Well-known peer action *
      * Handles download request message with concrete blocks on well-known `peer`.
      * If genesis block was downloaded, send Stop signal to downloading
      */
    def receiveRequestToDownload : Receive = {
-      case DataFromPeer(spec, data : InvData@unchecked, remotePeer) =>
-         if (spec.messageCode == requestModifierSpec.messageCode)
-            historyReaderOpt match {
-               case Some(reader) =>
-                  val historyReader = reader.asInstanceOf[AeneasHistory]
-                  if (historyReader.genesis() == data._2.head)
-                     networkControllerRef ! SendToNetwork(Message(endDownloadSpec, Right("end"), None), SendToPeer(remotePeer))
-                  else {
-                     val acquiredBlocks = acquireBlocksFromBlockchain(data._2.head, Seq(), historyReader)
-                     val msg = Message(batchMessageSpec, Right(acquiredBlocks), None)
-                     networkControllerRef ! SendToNetwork(msg, SendToPeer(remotePeer))
+      case DataFromPeer(spec, _data, remotePeer) =>
+         _data match {
+            case data : InvData =>
+               if (spec.messageCode == invSpec.messageCode) {
+                  log.debug(s"Receive request from ${remotePeer.socketAddress} to download block with ${Base58.encode(data._2.head)}")
+                  historyReaderOpt match {
+                     case Some(reader) =>
+                        val historyReader = reader.asInstanceOf[AeneasHistory]
+                        log.debug(s"GENESIS : ${Base58.encode(data._2.head)}")
+                        if (data._2.count(el => historyReader.genesis().deep == el.deep) == 1)
+                           networkControllerRef ! SendToNetwork(Message(endDownloadSpec, Right("end"), None), SendToPeer(remotePeer))
+                        else {
+                           val lastBlockParentId = historyReader.modifierById(data._2.head)
+                           lastBlockParentId match {
+                              case Some(parentOfLastBlock) =>
+                                 val acquiredBlocks = acquireBlocksFromBlockchain (parentOfLastBlock.id, Seq(), historyReader)
+                                 val msg = Message (batchMessageSpec, Right (acquiredBlocks), None)
+                                 log.debug (s"Download portion length is : ${acquiredBlocks.length}, will send it to ${remotePeer.socketAddress}")
+                                 networkControllerRef ! SendToNetwork (msg, SendToPeer (remotePeer) )
+                           }
+                        }
+                     case _ => log.debug(s"Can`t read history")
                   }
-
-               case _ =>
-            }
+               }
+         }
    }
 
    /**
+     * New peer action *
      * Receiving blocks from well-known peer and applying them to blockchain.
      * It also sends response to this peer to download MOAR blocks.
      */
    def receiveBlocksFromWellKnownPeer : Receive = {
       case DataFromPeer(spec, data : Seq[PowBlock]@unchecked, remotePeer) =>
          if (spec.messageCode == batchMessageSpec.messageCode) {
-            applyBlocksToBlockchain(data)
-            val lastBlock = data.reverse.head
+            log.debug(s"HistoryReader status : ${historyReaderOpt.getOrElse(None)}")
+            require(historyReaderOpt.isDefined)
+            applyBlocksToBlockchain(data.reverse)
+            require(historyReaderOpt.isDefined)
+            require(historyReaderOpt.get.height > 0)
             // TODO : check if all blocks was applied to database.
-            // TODO : probably it would be better to cache last block.
-            if (historyReaderOpt.get.lastBlock.get.equals(lastBlock))
-               requestBlockToDownload(lastBlock.modifierTypeId, lastBlock.parentId, remotePeer)
-            else requestBlockToDownload(data.head.modifierTypeId, data.head.id, remotePeer)
+            if (data.reverse.head.id.deep == historyReaderOpt.get.genesis().deep) {
+               log.debug(s"Genesis block was reached!")
+               self ! Idle
+            }
+            else requestBlockToDownload(data.reverse.head.modifierTypeId, data.reverse.head.id, remotePeer)
          }
+         else log.debug(s"Wrong message code coming with Seq[PoWBlock]")
    }
 
    def receiveStopSignal : Receive = {
-      case DataFromPeer(spec, data : String@unchecked, remotePeer) =>
+      case DataFromPeer(spec, data, remotePeer) =>
          if (spec.messageCode == endDownloadSpec.messageCode) {
             self ! Idle
             viewHolderRef ! DownloadEnded(historyReaderOpt)
@@ -130,7 +153,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    def handleIdleSignal : Receive = {
       case Idle =>
-         viewHolderRef ! DownloadEnded
+         viewHolderRef ! DownloadEnded(historyReaderOpt)
    }
 
    def historyChanged : Receive = {
@@ -140,7 +163,8 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
    }
 
    /**
-     * Storage blocks getter for downloader actor.
+     * * Well-known peer action
+     * Storage of blocks getter for sending that portion to new peer.
      * @param acquiringId current block
      * @param acquiredBlocks collection of already acquired blocks for sending.
      * @param historyReader
@@ -156,8 +180,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
             case Some(b) =>
                b match {
                   case block : PowBlock =>
-                     if (historyReader.storage.isGenesis(block))
-                        acquiredBlocks :+ block
+                     if (historyReader.storage.isGenesis(block)) acquiredBlocks :+ block
                      else acquireBlocksFromBlockchain(block.parentId, acquiredBlocks :+ block, historyReader)
                   case _ =>
                      acquiredBlocks
@@ -178,6 +201,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
          case Some(reader) =>
             var historyReader = reader.asInstanceOf[AeneasHistory]
             historyReader = applyBlocks(blocks, historyReader)
+            log.debug(s"HistoryReader after applying : $historyReader")
             historyReaderOpt = Option(historyReader)
          case _ =>
       }
@@ -194,13 +218,15 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
       }
    }
 
+   // 2nxvYFQWipvnvuwS5dre6uanXwhuyX3QRB5YkSUmsiHU
+
    override def receive: Receive = {
       historyChanged orElse
-      onDownloadBlocks orElse
-      receiveBlocksFromWellKnownPeer orElse
-      receiveRequestToDownload orElse
-      receiveStopSignal orElse 
-      handleIdleSignal
+         onDownloadBlocks orElse
+         receiveBlocksFromWellKnownPeer orElse
+         receiveRequestToDownload orElse
+         receiveStopSignal orElse
+         handleIdleSignal
    }
 }
 

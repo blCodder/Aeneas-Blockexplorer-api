@@ -84,10 +84,6 @@ MR <: MempoolReader[TX]](networkControllerRef: ActorRef,
     case SemanticallyFailedModification(mod, throwable) =>
     //todo: penalize source peer?
 
-    case ChangedHistory(reader: HR@unchecked) if reader.isInstanceOf[HR] =>
-      //TODO isInstanceOf, type erasure
-      historyReaderOpt = Some(reader)
-
     case ChangedMempool(reader: MR@unchecked) if reader.isInstanceOf[MR] =>
       //TODO isInstanceOf, type erasure
       mempoolReaderOpt = Some(reader)
@@ -107,7 +103,10 @@ MR <: MempoolReader[TX]](networkControllerRef: ActorRef,
       if (statusTracker.elapsedTimeSinceLastSync() < (networkSettings.syncInterval.toMillis / 2)) {
         //TODO should never reach this point
         log.debug("Trying to send sync info too often")
-      } else {
+      }
+      else if (historyReaderOpt.isEmpty)
+        log.debug(s"History was not created, too early for syncing")
+      else {
         historyReaderOpt.foreach(r => sendSync(r.syncInfo))
       }
   }

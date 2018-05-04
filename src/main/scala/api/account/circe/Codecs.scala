@@ -1,29 +1,30 @@
 package api.account.circe
 
+// noinspection ScalaStyle
 import api.account.SignUpMessagesType
 import block.PowBlock
 import io.circe._
+import io.circe.generic.extras._
 import io.circe.parser._
 import io.circe.syntax._
-import io.circe.generic.extras._
 import scorex.crypto.encode.Base58
 /**
   * @author luger. Created on 13.03.18.
   * @version ${VERSION}
   */
 object Codecs{
-    import io.circe.generic.extras.semiauto._
     import api.account.SignUpMessagesType._
+    import io.circe.generic.extras.semiauto._
     import auto._
 
-    implicit val powBlockEncoder: Encoder[PowBlock] = Encoder.forProduct6("id", "parentId", "timestamp", "nonce", "brothersHash", "brothers")(pb =>{
-        (
+    implicit val powBlockEncoder: Encoder[PowBlock] =
+        Encoder.forProduct6("id", "parentId", "timestamp", "nonce", "merkleRoot", "transactions")(pb => {(
           Base58.encode(pb.id).asJson,
           Base58.encode(pb.parentId).asJson,
           pb.timestamp.asJson,
           pb.nonce.asJson,
-          Base58.encode(pb.brothersHash).asJson,
-          pb.brothers.map(b => Base58.encode(b.id).asJson).asJson
+          Base58.encode(pb.merkleRoot).asJson,
+          pb.transactionPool.map(tx => tx.asJson).asJson
         )
     })
 
@@ -38,8 +39,8 @@ object Codecs{
                 Base58.encode(pb.parentId),
                 pb.timestamp,
                 pb.nonce,
-                Base58.encode(pb.brothersHash),
-                pb.brothers.map(b => Base58.encode(b.id))
+                Base58.encode(pb.merkleRoot),
+                pb.transactionPool.map(b => Base58.encode(b.id))
             )
     }
 

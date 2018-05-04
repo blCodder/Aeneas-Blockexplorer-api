@@ -2,6 +2,7 @@ package scorex
 
 import scorex.core.network.message.BasicMsgDataTypes.InvData
 import scorex.crypto.encode.Base58
+import scorex.crypto.hash.Digest32
 import supertagged.TaggedType
 
 package object core {
@@ -16,6 +17,10 @@ package object core {
   type ModifierTypeId = ModifierTypeId.Type
 
   type ModifierId = ModifierId.Type
+
+  type MerkleHash = Digest32
+
+  type TxId = ModifierId.Type
 
   type VersionTag = VersionTag.Type
 

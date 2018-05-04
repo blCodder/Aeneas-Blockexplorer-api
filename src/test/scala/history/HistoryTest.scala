@@ -7,6 +7,7 @@ import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.crypto.encode.Base58
+import scorex.crypto.hash.Digest32
 import settings.AeneasSettings
 
 import scala.util.Success
@@ -28,8 +29,7 @@ class HistoryTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -38,8 +38,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -48,8 +47,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -58,8 +56,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block3.id,
          System.currentTimeMillis(),
          4 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -68,8 +65,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block4.id,
          System.currentTimeMillis(),
          5 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -101,8 +97,7 @@ class HistoryTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -111,8 +106,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -121,8 +115,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -131,8 +124,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block3.id,
          System.currentTimeMillis(),
          4 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -141,8 +133,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block4.id,
          System.currentTimeMillis(),
          5 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -171,8 +162,7 @@ class HistoryTest extends FunSuite with Matchers {
          settings.miningSettings.GenesisParentId,
          System.currentTimeMillis(),
          1 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -181,8 +171,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block1.id,
          System.currentTimeMillis(),
          2 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
@@ -191,8 +180,7 @@ class HistoryTest extends FunSuite with Matchers {
          ModifierId @@ block2.id,
          System.currentTimeMillis(),
          3 << 3,
-         0,
-         Array.fill(32) (0 : Byte),
+         Digest32 @@ Array.fill(32) (1 : Byte),
          genesisAccount._2,
          Seq()
       )
