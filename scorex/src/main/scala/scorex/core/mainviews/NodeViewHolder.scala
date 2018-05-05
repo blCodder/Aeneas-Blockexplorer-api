@@ -125,6 +125,7 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
                 updateNodeView(updatedVault = Option (x), updatedMempool = Some(newPool))
                 notifySubscribers(EventType.SuccessfulTransaction, SuccessfulTransaction[P, TX](tx))
               case _ =>
+                log.debug("vault is empty; may be user isn't logged in")
             }
 
           case Failure(e) =>
@@ -387,6 +388,7 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
 
   protected def getNodeViewChanges: Receive = {
     case GetNodeViewChanges(history, state, vault, mempool) =>
+      log.debug(s"GetNodeViewChanges, ${nodeView._1.getReader}")
       if (history) sender() ! ChangedHistory(nodeView._1.getReader)
       if (state) sender() ! ChangedState(nodeView._2.getReader)
       if (vault) sender() ! ChangedVault()

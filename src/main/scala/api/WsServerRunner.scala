@@ -3,8 +3,8 @@ package api
 import java.io.{File, FileInputStream}
 import java.security.{KeyStore, SecureRandom}
 import java.util.concurrent.Executors
-import javax.net.ssl.{KeyManagerFactory, SSLContext}
 
+import javax.net.ssl.{KeyManagerFactory, SSLContext}
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.ActorMaterializer
@@ -16,12 +16,13 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 import scala.io.Source
 import scala.util.{Failure, Success}
 import akka.http.scaladsl.server.Directives._
+import scorex.core.utils.ScorexLogging
 
 /**
   * @author luger. Created on 09.03.18.
   * @version ${VERSION}
   */
-class WsServerRunner(miner:ActorRef, nodeViewHolderRef:ActorRef, aeneasSettings: AeneasSettings)(implicit system:ActorSystem){
+class WsServerRunner(miner:ActorRef, nodeViewHolderRef:ActorRef, aeneasSettings: AeneasSettings)(implicit system:ActorSystem) extends ScorexLogging{
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
 
@@ -45,9 +46,9 @@ class WsServerRunner(miner:ActorRef, nodeViewHolderRef:ActorRef, aeneasSettings:
     bind.onComplete {
       case Success(binding) =>
         val localAddress = binding.localAddress
-        println(s"Server is listening on ${localAddress.getHostName}:${localAddress.getPort}")
+        log.debug(s"WebSocket Server is listening on ${localAddress.getHostName}:${localAddress.getPort}")
       case Failure(e) =>
-        println(s"Binding failed with ${e.getMessage}")
+        log.debug(s"Binding failed with ${e.getMessage}")
         sys.exit(-1)
     }
   }

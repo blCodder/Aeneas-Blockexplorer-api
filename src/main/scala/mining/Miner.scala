@@ -124,6 +124,7 @@ class Miner(viewHolderRef: ActorRef,
                }
             })
             p.future.onComplete { toBlock =>
+               log.info(s"New block precomplete time")
                toBlock.getOrElse(None).foreach { block =>
                   log.info(s"Locally generated PoW block: $block with difficulty $difficulty")
                   self ! block
@@ -206,7 +207,7 @@ object Miner extends App with ScorexLogging {
             } else {
                view.vault.generateNewSecret().publicKeys.head
             }
-            log.info(MiningInfo(difficulty, bestBlock, pubkey).toString)
+            log.info(s"miningInfo: ${MiningInfo(difficulty, bestBlock, pubkey)}")
             MiningInfo(difficulty, bestBlock, pubkey)
       }
       GetDataFromCurrentView[AeneasHistory,

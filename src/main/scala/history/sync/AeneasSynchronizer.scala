@@ -69,7 +69,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
    NodeViewSynchronizer [P, TX, SI, SIS, PMOD, HR, MR] (networkControllerRef,
     viewHolderRef, localInterfaceRef, syncInfoSpec, networkSettings, timeProvider) {
 
-   val powBlockMessageSpec = new PoWBlockMessageSpec
+   val powBlockMessageSpec = new PoWBlockMessageSpec()
    val chainSpec = new FullBlockChainRequestSpec
    var peerManager : ActorRef = ActorRef.noSender
    implicit lazy val timeout = new Timeout(500.millisecond)
@@ -179,6 +179,7 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
      */
    def onDownloadReceive : Receive = {
       case DataFromPeer(spec, block : PowBlock@unchecked, remotePeer) =>
+         log.debug(s"Block data received, check block : $block")
          block match {
             case b : PowBlock =>
                if (spec.messageCode == powBlockMessageSpec.messageCode) {
@@ -186,8 +187,8 @@ MR <: MempoolReader[TX]] (networkControllerRef: ActorRef,
                   historyReaderOpt match {
                      case Some (history) =>
                         val historyReader = history.asInstanceOf[AeneasHistory]
-                        log.debug(s"History was read, it`s height : ${historyReader.height}")
                         historyReader.append(b)
+                        log.debug(s"History was read, it`s height : ${historyReader.height}")
                         sendRequestToDownloader(b.modifierTypeId, b.parentId, remotePeer)
                      case None =>
                   }

@@ -56,6 +56,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
       val vhEvents = Seq(NodeViewHolder.EventType.HistoryChanged)
       viewHolderRef ! Subscribe(vhEvents)
+      log.debug("Sending GetNodeViewChanges")
       viewHolderRef ! GetNodeViewChanges(history = true, state = false, vault = false, mempool = false)
    }
 
@@ -66,7 +67,9 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
      */
    def onDownloadBlocks : Receive = {
       case SendBlockRequest(typeId, id, remotePeer) =>
-         log.debug(s" NEW PEER ACTION : Request to download portion of block with ${Base58.encode(id)} id from ${remotePeer.socketAddress} are forming")
+         log.debug(s""" NEW PEER ACTION :
+               Request to download portion of block with ${Base58.encode(id)} id
+               from ${remotePeer.socketAddress} are forming """)
          requestBlockToDownload(typeId, id, remotePeer)
    }
 
@@ -94,6 +97,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
      */
    def receiveRequestToDownload : Receive = {
       case DataFromPeer(spec, _data, remotePeer) =>
+         log.debug(s"receive RequestToDownload; ${spec.messageCode}, data: _data")
          _data match {
             case data : InvData =>
                if (spec.messageCode == invSpec.messageCode) {
@@ -127,6 +131,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
      */
    def receiveBlocksFromWellKnownPeer : Receive = {
       case DataFromPeer(spec, data : Seq[PowBlock]@unchecked, remotePeer) =>
+        log.debug(s"receive blocks from well known peers; ${spec.messageCode}, ${spec.messageName}")
          if (spec.messageCode == batchMessageSpec.messageCode) {
             log.debug(s"HistoryReader status : ${historyReaderOpt.getOrElse(None)}")
             require(historyReaderOpt.isDefined)
@@ -145,6 +150,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    def receiveStopSignal : Receive = {
       case DataFromPeer(spec, data, remotePeer) =>
+         log.debug(s"received stop signal, ${spec.messageCode}")
          if (spec.messageCode == endDownloadSpec.messageCode) {
             self ! Idle
             viewHolderRef ! DownloadEnded(historyReaderOpt)
@@ -159,6 +165,7 @@ class BlockchainDownloader(networkControllerRef : ActorRef,
 
    def historyChanged : Receive = {
       case ChangedHistory(reader: AeneasHistory@unchecked) if reader.isInstanceOf[AeneasHistory] =>
+         log.debug(s"history changed, height: ${reader.height}")
          //TODO isInstanceOf & typeErasure??
          historyReaderOpt = Some(reader)
    }

@@ -108,13 +108,20 @@ class NetworkController(settings: NetworkSettings,
 
   def businessLogic: Receive = {
     //a message coming in from another peer
-    case Message(spec, Left(msgBytes), Some(remote)) =>
+    case Message(s, m, r) =>
+      log.debug(s"message in businessLogic: $s, $m, $r")
+      val spec = s
+      val msgBytes = if (m.isLeft) m.left.get else Array[Byte]()//OrElse(Array[Byte]())
+      log.debug(s"spec in businessLogic: ${spec.messageCode}, ${spec.messageName}, ${spec.parseBytes(msgBytes)}")
+      val remote = r.get
       val msgId = spec.messageCode
 
       spec.parseBytes(msgBytes) match {
         case Success(content) =>
+          log.debug(s"${messageHandlers.size}")
           messageHandlers.find(_._1.contains(msgId)).map(_._2) match {
             case Some(handler) =>
+              log.debug(s"handler.path.name: ${handler.path.name}")
               handler ! DataFromPeer(spec, content, remote)
 
             case None =>
@@ -127,6 +134,7 @@ class NetworkController(settings: NetworkSettings,
       }
 
     case SendToNetwork(message, sendingStrategy) =>
+      log.debug(s"sendToNetwork:$message")
       (peerManagerRef ? FilterPeers(sendingStrategy))
         .map(_.asInstanceOf[Seq[ConnectedPeer]])
         .foreach(_.foreach(_.handlerRef ! message))
@@ -212,6 +220,11 @@ class NetworkController(settings: NetworkSettings,
 
     case nonsense: Any =>
       log.warn(s"NetworkController: got something strange $nonsense")
+  }
+
+  override def postStop(): Unit = {
+    log.debug("I'm died! :(")
+    super.postStop()
   }
 }
 
