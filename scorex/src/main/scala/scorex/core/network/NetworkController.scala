@@ -108,20 +108,13 @@ class NetworkController(settings: NetworkSettings,
 
   def businessLogic: Receive = {
     //a message coming in from another peer
-    case Message(s, m, r) =>
-      log.debug(s"message in businessLogic: $s, $m, $r")
-      val spec = s
-      val msgBytes = if (m.isLeft) m.left.get else Array[Byte]()//OrElse(Array[Byte]())
-      log.debug(s"spec in businessLogic: ${spec.messageCode}, ${spec.messageName}, ${spec.parseBytes(msgBytes)}")
-      val remote = r.get
+    case Message(spec, Left(msgBytes), Some(remote)) =>
       val msgId = spec.messageCode
 
       spec.parseBytes(msgBytes) match {
         case Success(content) =>
-          log.debug(s"${messageHandlers.size}")
           messageHandlers.find(_._1.contains(msgId)).map(_._2) match {
             case Some(handler) =>
-              log.debug(s"handler.path.name: ${handler.path.name}")
               handler ! DataFromPeer(spec, content, remote)
 
             case None =>

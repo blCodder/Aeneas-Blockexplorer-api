@@ -9,6 +9,5 @@ import java.net.InetSocketAddress
   */
 case class WsApiSettings (bindAddress: InetSocketAddress, keyPath:String, keyPwd:String){
   val fileDictSrc = new File (keyPath)
-  if (!fileDictSrc.exists()) throw new Error("key not found! Aborting!")
-
+//  if (!fileDictSrc.exists()) throw new Error("key not found! Aborting!")
 }

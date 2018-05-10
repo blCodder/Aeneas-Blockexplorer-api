@@ -3,7 +3,6 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.12.4",
   version := "0.0.1-alpha"
 )
-
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 
 resolvers += Resolver.bintrayRepo("parabellum1905y","maven")
@@ -40,12 +39,17 @@ val scorexDependencies = Seq(
   "de.heikoseeberger" %% "akka-http-circe" % "1.19.0"
 )
 
-lazy val aeneas = Project(id = "aeneas", base = file(s"."))
+lazy val aeneas = Project(id = "Aeneas", base = file(s"."))
    .dependsOn(scorex)
    .settings(commonSettings: _*)
 
 lazy val scorex = Project(id = "Scorex", base = file("scorex"))
    .settings(commonSettings: _*)
+
+lazy val bench = Project(id = "Benchmarks", base = file("benchmarks"))
+   .dependsOn(aeneas)
+   .settings(commonSettings: _*)
+   .enablePlugins(JmhPlugin)
 
 libraryDependencies in ThisBuild ++= Seq(
   "com.iheart" %% "ficus" % "1.4.2",
@@ -55,7 +59,6 @@ libraryDependencies in ThisBuild ++= Seq(
   "io.circe" %% "circe-generic-extras" % circeVersion,
   "org.bitlet" % "weupnp" % "0.1.+",
   "commons-net" % "commons-net" % "3.+"
-
 ) ++ testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
 
 mainClass in assembly := Some("SimpleBlockChain")

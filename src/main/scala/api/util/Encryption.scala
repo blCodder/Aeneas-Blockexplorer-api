@@ -2,9 +2,9 @@ package api.util
 
 import java.security.MessageDigest
 import java.util
+
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
-
 import scorex.crypto.encode.Base64
 
 import scala.util.Try
@@ -23,9 +23,7 @@ object Encryption {
   def decrypt(key: String, encryptedValue: String): Try[String] = {
     val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING")
     cipher.init(Cipher.DECRYPT_MODE, keyToSpec(key))
-    Try {
-      new String(cipher.doFinal(Base64.decode(encryptedValue)))
-    }
+    Base64.decode(encryptedValue).map(ev =>new String(cipher.doFinal(ev)) )
   }
 
   def keyToSpec(key: String): SecretKeySpec = {

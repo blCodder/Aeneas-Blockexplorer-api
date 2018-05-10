@@ -5,8 +5,8 @@ import api.account.SignUpMessagesType
 import block.PowBlock
 import io.circe._
 import io.circe.generic.extras._
-import io.circe.syntax._
 import io.circe.parser._
+import io.circe.syntax._
 import scorex.crypto.encode.Base58
 /**
   * @author luger. Created on 13.03.18.
@@ -24,7 +24,7 @@ object Codecs{
           pb.timestamp.asJson,
           pb.nonce.asJson,
           Base58.encode(pb.merkleRoot).asJson,
-          pb.transactionPool.map(b => Base58.encode(b).asJson).asJson
+          pb.transactionPool.map(tx => tx.asJson).asJson
         )
     })
 
@@ -40,7 +40,7 @@ object Codecs{
                 pb.timestamp,
                 pb.nonce,
                 Base58.encode(pb.merkleRoot),
-                pb.transactionPool.map(b => Base58.encode(b))
+                pb.transactionPool.map(b => Base58.encode(b.id))
             )
     }
 

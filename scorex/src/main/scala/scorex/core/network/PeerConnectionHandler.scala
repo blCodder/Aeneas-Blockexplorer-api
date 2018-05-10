@@ -125,7 +125,6 @@ class PeerConnectionHandler(val settings: NetworkSettings,
       }
 
     case HandshakeTimeout =>
-      log.debug("handshake timed out")
       self ! CloseConnection
 
     case HandshakeDone =>

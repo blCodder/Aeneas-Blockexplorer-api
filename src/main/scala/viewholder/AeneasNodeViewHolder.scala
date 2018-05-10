@@ -88,11 +88,10 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
       val history = AeneasHistory.readOrGenerate(settings, minerSettings)
       val minState = SimpleMininalState.readOrGenerate(settings)
-      val wallet = None //AeneasWallet.readOrGenerate(settings, 1)
+      val wallet = Some(AeneasWallet.readOrGenerate(settings, 1))
       val memPool = SimpleBoxTransactionMemPool.emptyPool
 
       log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
-      //notifySubscribers(EventType.HistoryChanged, ChangedHistory(history))
       Some(history, minState, wallet, memPool)
    }
 
@@ -110,7 +109,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       // should be empty
       val history = AeneasHistory.readOrGenerate(settings, minerSettings)
       val minState = SimpleMininalState.readOrGenerate(settings)
-      val wallet = None//AeneasWallet.readOrGenerate(settings, 1)
+      val wallet = Some(AeneasWallet.readOrGenerate(settings, 1))
       val memPool = SimpleBoxTransactionMemPool.emptyPool
       notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history))
       Some(history, minState, wallet, memPool)
@@ -144,7 +143,6 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      */
    protected def handleAeneasSubscribe: Receive = {
       case AeneasSubscribe(events) =>
-         log.debug(s"handleAeneasSubscribe :$events")
          events.foreach { evt =>
             val current = aeneasSubscribers.getOrElse(evt, Seq())
             aeneasSubscribers.put(evt, current :+ sender())

@@ -26,10 +26,21 @@ class LoginActor(settings: ScorexSettings, store:LSMStore) extends Actor with Sc
       Base58.decode(seed) match {
         case Success(seedByteArray) =>
           val privateId = store.get(ByteArrayWrapper(seedByteArray))
+          store.getAll().toList.foreach { x =>
+            val ( k, v ) = x
+            log.debug(
+              s"""
+                 |key : ${Base58.encode(k.data)}
+                 | real value: ${new String (v.data, "UTF-8")}
+                 |value: ${Base58.encode(Sha256(Encryption.decrypt(pwd, new String (v.data, "UTF-8")).get))}
+                 |value2: ${Base58.encode(Sha256(Encryption.decrypt(pwd, new String (v.data, "UTF-8")).get))}
+                  """.stripMargin)
+          }
           privateId match {
             case Some(id) =>
               Encryption.decrypt(pwd, new String (id.data, "UTF-8")) match {
                 case Success(idInBase58) =>
+                  log.debug(s"privateId : ${Base58.encode(Sha256(idInBase58))}")
                   if (seed == Base58.encode(Sha256(idInBase58))) {
                     val wallet = AeneasWallet.readOrGenerate(settings, ByteStr(Sha256(idInBase58)))
                     val publicKeys = wallet.publicKeys.toSeq.sortBy(_.address)
@@ -55,6 +66,17 @@ class LoginActor(settings: ScorexSettings, store:LSMStore) extends Actor with Sc
         val (seed, _) = pair
         val wallet = AeneasWallet.readOrGenerate(settings, ByteStr(seed.data))
         val publicKeys = wallet.publicKeys.toSeq.sortBy(_.address)
+        publicKeys.zipWithIndex.sortBy(_._2).foreach{s =>
+          val (x, i) = s
+          log.debug(
+            s"""
+              |i : $i :
+              |address: ${x.address}
+               pubkey: ${x.pubKeyBytes}
+               seed : ${Base58.encode(seed.data)}
+            """.stripMargin)
+          x
+        }
         SeedWithAddress(Base58.encode(seed.data), publicKeys.headOption.map(_.address).getOrElse(""))
       }.toList
       sender() ! NewAccountEvents.ReturnSavedSeeds (seeds)

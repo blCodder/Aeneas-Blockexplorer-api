@@ -5,6 +5,7 @@ import history.sync.{VerySimpleSyncInfo, VerySimpleSyncInfoSerializer}
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
+import scorex.crypto.hash.Digest32
 import settings.AeneasSettings
 
 /**
@@ -20,7 +21,7 @@ class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
       settings.miningSettings.GenesisParentId,
       System.currentTimeMillis(),
       1L,
-      ModifierId @@ Array.fill(32) (0 : Byte),
+      Digest32 @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
       Seq.empty
     )
@@ -29,7 +30,7 @@ class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
       ModifierId @@ block1.id,
       System.currentTimeMillis(),
       2,
-      ModifierId @@ Array.fill(32) (0 : Byte),
+      Digest32 @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
       Seq.empty
     )
@@ -38,7 +39,7 @@ class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
       ModifierId @@ block2.id,
       System.currentTimeMillis(),
       3,
-      ModifierId @@ Array.fill(32) (0 : Byte),
+      Digest32 @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
       Seq.empty
     )
@@ -47,7 +48,7 @@ class VerySimpleSyncInfoSerializerTest extends FunSuite with Matchers {
       ModifierId @@ block3.id,
       System.currentTimeMillis(),
       4,
-      ModifierId @@ Array.fill(32) (0 : Byte),
+      Digest32 @@ Array.fill(32) (0 : Byte),
       genesisAccount._2,
       Seq.empty
     )

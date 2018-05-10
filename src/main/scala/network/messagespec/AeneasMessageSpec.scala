@@ -17,11 +17,12 @@
 package network.messagespec
 
 import block.{PowBlock, PowBlockCompanion}
+import com.google.common.primitives.Ints
 import org.bouncycastle.util.Strings
 import scorex.core.network.message.Message.MessageCode
 import scorex.core.network.message.{InvSpec, MessageSpec}
 
-import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 
 /**
@@ -49,17 +50,21 @@ class PoWBlocksMessageSpec extends MessageSpec[Seq[PowBlock]] {
    override val messageName: String = "PowBlocks"
 
    override def toBytes(obj: Seq[PowBlock]): Array[MessageCode] = {
-      obj.foldLeft(Array.emptyByteArray) { (acc, el) => acc ++ PowBlockCompanion.toBytes(el) }
+      obj.foldLeft(Array[Byte]()) { (acc, el) =>
+         acc ++ Ints.toByteArray(PowBlockCompanion.toBytes(el).length) ++ PowBlockCompanion.toBytes(el)
+      }
    }
 
    override def parseBytes(bytes: Array[MessageCode]): Try[Seq[PowBlock]] = Try {
-      val blocks = mutable.ArrayBuffer[PowBlock]()
+      val blocks = ArrayBuffer[PowBlock]()
       var offset = 0
       while (offset < bytes.length) {
-         blocks.append(PowBlockCompanion.parseBytes(bytes.slice(offset, offset + PowBlock.powBlockSize)).get)
-         offset = offset + PowBlock.powBlockSize
+         val nextBlockSize = Ints.fromByteArray(bytes.slice(offset, offset + 4))
+         offset = offset + 4
+         blocks.append(PowBlockCompanion.parseBytes(bytes.slice(offset, offset + nextBlockSize)).get)
+         offset = offset + nextBlockSize
       }
-      blocks
+      blocks.toSeq
    }
 }
 

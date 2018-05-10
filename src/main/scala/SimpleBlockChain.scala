@@ -73,7 +73,6 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
 object SimpleBlockChain {
    def main(args: Array[String]): Unit = {
       val loadSettings = LoadSettings()
-      //val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActorConfig)
       new SimpleBlockChain(loadSettings).run()
    }
 }
