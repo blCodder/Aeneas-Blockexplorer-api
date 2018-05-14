@@ -172,7 +172,6 @@ class PeerConnectionHandler(val settings: NetworkSettings,
         messagesHandler.parseBytes(packet.toByteBuffer, Some(selfPeer.get)) match {   //todo: .get
           case Success(message) =>
             log.info("Received message " + message.spec + " from " + remote)
-            log.debug(s"${networkControllerRef.path.name}")
             networkControllerRef ! message
             false
 
