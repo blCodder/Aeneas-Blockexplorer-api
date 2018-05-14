@@ -21,8 +21,11 @@ object SignUpMessagesType {
   case class ConfirmationPassPhrase (phrase:List[String]) extends SignupMessages
   case class PassPhrase (phrase:List[String]) extends SignupMessages
   case class PwdConfirmed () extends SignupMessages
+  case class LoggedIn (seed:String) extends SignupMessages
   case class GetSavedSeeds () extends SignupMessages
-  case class SavedSeeds (seeds:List[String]) extends SignupMessages
+  case class SavedSeeds (seeds:List[SeedWithAddress]) extends SignupMessages
+  case class GetSeedWithAddress (publicSeed:String) extends SignupMessages
+  case class ReturnSeedWithAddress (seed:SeedWithAddress) extends SignupMessages
   case class ReturnPowBlock (id:String, parentId:String, timestamp:Long, nonce:Long, brothersHash:String, brothers:Seq[String]) extends SignupMessages
 
   case class SignUpMessage (msg:SignupMessages)

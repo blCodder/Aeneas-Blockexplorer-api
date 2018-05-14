@@ -30,7 +30,7 @@ case class AeneasWallet(seed: ByteStr, store: LSMStore)
    override type S = PrivateKey25519
    override type PI = PublicKey25519Proposition
 
-   private val SecretsKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(store.keySize)(2: Byte))
+   private val SecretsKey: ByteArrayWrapper = if (seed.base58.nonEmpty) ByteArrayWrapper(seed.arr.take(store.keySize) ++ Array.fill(Math.max(0, store.keySize - seed.arr.length))(2:Byte)) else ByteArrayWrapper(Array.fill(store.keySize)(2: Byte))
 
    private val BoxIdsKey: ByteArrayWrapper = ByteArrayWrapper(Array.fill(store.keySize)(1: Byte))
 
@@ -68,6 +68,8 @@ case class AeneasWallet(seed: ByteStr, store: LSMStore)
       val s = Blake2b256(seed.arr ++ nonce)
       val (priv, _) = PrivateKey25519Companion.generateKeys(s)
       val allSecrets: Set[PrivateKey25519] = Set(priv) ++ prevSecrets
+      log.debug(s"WTF : ${SecretsKey.data}, ${ByteArrayWrapper (new Array[Byte](0)) == ByteArrayWrapper(priv.privKeyBytes)}")
+
       store.update(ByteArrayWrapper(priv.privKeyBytes),
          Seq(),
          Seq(SecretsKey -> ByteArrayWrapper(allSecrets.toArray.flatMap(p => PrivateKey25519Serializer.toBytes(p)))))

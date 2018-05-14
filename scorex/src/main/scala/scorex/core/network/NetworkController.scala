@@ -127,6 +127,7 @@ class NetworkController(settings: NetworkSettings,
       }
 
     case SendToNetwork(message, sendingStrategy) =>
+      log.debug(s"sendToNetwork:$message")
       (peerManagerRef ? FilterPeers(sendingStrategy))
         .map(_.asInstanceOf[Seq[ConnectedPeer]])
         .foreach(_.foreach(_.handlerRef ! message))
@@ -212,6 +213,11 @@ class NetworkController(settings: NetworkSettings,
 
     case nonsense: Any =>
       log.warn(s"NetworkController: got something strange $nonsense")
+  }
+
+  override def postStop(): Unit = {
+    log.debug("I'm died! :(")
+    super.postStop()
   }
 }
 

@@ -72,7 +72,7 @@ class Miner(viewHolderRef: ActorRef,
    // Best fitness block if can't find any better.
    var bestFitnessBlock : PowBlock = _
 
-   private var currentMemPool : SimpleBoxTransactionMemPool = null
+   private var currentMemPool : SimpleBoxTransactionMemPool = _
    private var currentUnconfirmed : Seq[SimpleBoxTransaction] = Seq()
 
 
@@ -203,7 +203,7 @@ class Miner(viewHolderRef: ActorRef,
             }
          }
 
-      case pmi: MiningInfo =>
+      case Some (pmi: MiningInfo) =>
          if (!cancellableOpt.forall(_.status.isCancelled)) {
             log.warn("Trying to run miner when the old one is still running")
          } else {
@@ -277,28 +277,33 @@ object Miner extends App with ScorexLogging {
 
    def getRequiredData: GetDataFromCurrentView[AeneasHistory,
      SimpleMininalState,
-     AeneasWallet,
+     Option[AeneasWallet],
      SimpleBoxTransactionMemPool,
-     MiningInfo] = {
-      val f: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] => MiningInfo = {
-         view: CurrentView[AeneasHistory, SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool] =>
-            log.debug(s"Miner.requiredData : work begins")
+     Option[MiningInfo]] = {
+      val f: CurrentView[AeneasHistory, SimpleMininalState, Option[AeneasWallet], SimpleBoxTransactionMemPool] => Option[MiningInfo] = {
+         view: CurrentView[AeneasHistory, SimpleMininalState, Option[AeneasWallet], SimpleBoxTransactionMemPool] =>
+           view.vault match {
+              case Some(vault) =>
+                 log.debug(s"Miner.requiredData : work begins")
 
-            val bestBlock = view.history.storage.bestBlock
-            val difficulty = view.history.storage.getPoWDifficulty(None)
-            val pubkey = if (view.vault.publicKeys.nonEmpty) {
-               view.vault.publicKeys.head
-            } else {
-               view.vault.generateNewSecret().publicKeys.head
-            }
-            log.info(MiningInfo(difficulty, bestBlock, pubkey).toString)
-            MiningInfo(difficulty, bestBlock, pubkey)
+                 val bestBlock = view.history.storage.bestBlock
+                 val difficulty = view.history.storage.getPoWDifficulty(None)
+
+                 val pubkey = if (vault.publicKeys.nonEmpty) {
+                    vault.publicKeys.head
+                 } else {
+                    view.vault.get.generateNewSecret().publicKeys.head
+                 }
+                 log.info(s"miningInfo: ${MiningInfo(difficulty, bestBlock, pubkey)}")
+                 Some (MiningInfo(difficulty, bestBlock, pubkey))
+              case _ => None
+           }
       }
       GetDataFromCurrentView[AeneasHistory,
         SimpleMininalState,
-        AeneasWallet,
+        Option[AeneasWallet],
         SimpleBoxTransactionMemPool,
-        MiningInfo](f)
+        Option[MiningInfo]](f)
    }
 
 }

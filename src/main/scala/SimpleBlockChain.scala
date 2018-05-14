@@ -42,7 +42,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
 
    implicit val serializerReg: SerializerRegistry = SerializerRegistry(Seq(SerializerRecord(SimpleBoxTransaction.simpleBoxEncoder)))
 
-   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActor)
+   override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActorConfig)
 
    override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
 
@@ -63,7 +63,7 @@ class SimpleBlockChain(loadSettings: LoadSettings) extends AeneasApp with Scorex
          new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL] (networkControllerRef,
             nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
 
-   new WsServerRunner(miner, simpleSettings).run
+   new WsServerRunner(miner, nodeViewHolderRef, simpleSettings).run
    /**
      * API description in openapi format in YAML or JSON
      */
@@ -77,11 +77,11 @@ object SimpleBlockChain {
    }
 }
 
-case class LoadSettings() extends ScorexLogging {
+case class LoadSettings() {
    val simpleSettings : AeneasSettings = AeneasSettings.read()
    private val root = ConfigFactory.load()
-   val aeneasActor = root.getConfig("Aeneas")
-   log.debug(aeneasActor.toString)
+   val aeneasActorConfig = root.getConfig("Aeneas")
+   println(aeneasActorConfig.toString)
   // set logging path:
   sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
 }

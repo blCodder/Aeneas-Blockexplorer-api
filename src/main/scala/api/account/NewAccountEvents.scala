@@ -8,7 +8,7 @@ import akka.actor.ActorRef
   */
 object NewAccountEvents{
   sealed trait NewAccountEvent
-  case class ReceivedPassword(pwd: String) extends NewAccountEvent
+  case class ReceivedPassword(seed:SeedWithAddress, pwd: String) extends NewAccountEvent
   case class CallToSignUp (passPhrase:List[String]) extends NewAccountEvent
   case class SignUpCancelled () extends NewAccountEvent
   case class BackupPassPhrase() extends NewAccountEvent
@@ -20,9 +20,12 @@ object NewAccountEvents{
   case class SavedPassPhrase() extends NewAccountEvent
   case class ErrorEvent (msg:String) extends NewAccountEvent
   case class ImportAccont(passPhrase: List[String]) extends NewAccountEvent
+  case class GetSeedWithAddress (publicSeed:String) extends NewAccountEvent
+  case class ReturnSeedWithAddress (seed:SeedWithAddress) extends NewAccountEvent
   case class SignIn (publicSeed:String, pwd:String) extends NewAccountEvent
   case class GetSavedSeeds () extends NewAccountEvent
-  case class ReturnSavedSeeds (seeds:List[String]) extends NewAccountEvent
+  case class ReturnSavedSeeds (seeds:List[SeedWithAddress]) extends NewAccountEvent
   case class Logout (publicSeed:String) extends NewAccountEvent
 }
 
+case class SeedWithAddress(seed:String, address:String)

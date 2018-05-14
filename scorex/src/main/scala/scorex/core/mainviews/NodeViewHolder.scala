@@ -44,14 +44,15 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
   type MP <: MemoryPool[TX, MP]
 
 
-  type NodeView = (HIS, MS, VL, MP)
+  type NodeView = (HIS, MS, Option[VL], MP)
   /**
     * The main data structure a node software is taking care about, a node view consists
     * of four elements to be updated atomically: history (log of persistent modifiers),
     * state (result of log's modifiers application to pre-historical(genesis) state,
     * user-specific information stored in vault (it could be e.g. a wallet), and a memory pool.
     */
-  var nodeView: NodeView
+  protected def updateNodeViewState(newNodeView:NodeView):Unit
+  protected def nodeView: NodeView //= restoreState().getOrElse(genesisState)
 
   /**
     * Restore a local view during a node startup. If no any stored view found
@@ -69,7 +70,7 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
 
   protected def minimalState(): MS = nodeView._2
 
-  protected def vault(): VL = nodeView._3
+  protected def vault(): Option[VL] = nodeView._3
 
   protected def memoryPool(): MP = nodeView._4
 
@@ -118,9 +119,14 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
         memoryPool().put(tx) match {
           case Success(newPool) =>
             log.debug(s"Unconfirmed transaction $tx added to the memory pool")
-            val newVault = vault().scanOffchain(tx)
-            updateNodeView(updatedVault = Some(newVault), updatedMempool = Some(newPool))
-            notifySubscribers(EventType.SuccessfulTransaction, SuccessfulTransaction[P, TX](tx))
+            vault() match {
+              case Some (x) =>
+                x.scanOffchain(tx)
+                updateNodeView(updatedVault = Option (x), updatedMempool = Some(newPool))
+                notifySubscribers(EventType.SuccessfulTransaction, SuccessfulTransaction[P, TX](tx))
+              case _ =>
+                log.debug("vault is empty; may be user isn't logged in")
+            }
 
           case Failure(e) =>
             notifySubscribers(EventType.FailedTransaction, FailedTransaction[P, TX](tx, e))
@@ -145,7 +151,7 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
                                updatedMempool: Option[MP] = None): Unit = {
     val newNodeView = (updatedHistory.getOrElse(history()),
       updatedState.getOrElse(minimalState()),
-      updatedVault.getOrElse(vault()),
+      updatedVault,
       updatedMempool.getOrElse(memoryPool()))
     if (updatedHistory.nonEmpty) {
       notifySubscribers[ChangedHistory[HistoryReader[PMOD, SI]]](EventType.HistoryChanged, ChangedHistory(newNodeView._1.getReader))
@@ -159,7 +165,7 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
     if (updatedMempool.nonEmpty) {
       notifySubscribers[ChangedMempool[MempoolReader[TX]]](EventType.MempoolChanged, ChangedMempool(newNodeView._4.getReader))
     }
-    nodeView = newNodeView
+    updateNodeViewState (newNodeView)
   }
 
   protected def extractTransactions(mod: PMOD): Seq[TX] = mod match {
@@ -283,13 +289,13 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
 
                 //we consider that vault always able to perform a rollback needed
                 val newVault = if (progressInfo.chainSwitchingNeeded) {
-                  vault().rollback(VersionTag @@ progressInfo.branchPoint.get).get.scanPersistent(progressInfo.toApply)
+                  vault().map (x => x.rollback(VersionTag @@ progressInfo.branchPoint.get).get.scanPersistent(progressInfo.toApply))
                 } else {
-                  vault().scanPersistent(progressInfo.toApply)
+                  vault().map (_.scanPersistent(progressInfo.toApply))
                 }
 
                 log.info(s"Persistent modifier ${pmod.encodedId} applied successfully")
-                updateNodeView(Some(newHistory), Some(newMinState), Some(newVault), Some(newMemPool))
+                updateNodeView(Some(newHistory), Some(newMinState), newVault, Some(newMemPool))
 
 
               case Failure(e) =>
@@ -382,6 +388,7 @@ trait NodeViewHolder[P <: Proposition, TX <: Transaction[P], PMOD <: PersistentN
 
   protected def getNodeViewChanges: Receive = {
     case GetNodeViewChanges(history, state, vault, mempool) =>
+      log.debug(s"GetNodeViewChanges, ${nodeView._1.getReader}")
       if (history) sender() ! ChangedHistory(nodeView._1.getReader)
       if (state) sender() ! ChangedState(nodeView._2.getReader)
       if (vault) sender() ! ChangedVault()

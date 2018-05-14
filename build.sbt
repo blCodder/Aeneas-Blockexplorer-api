@@ -8,9 +8,9 @@ javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
 resolvers += Resolver.bintrayRepo("parabellum1905y","maven")
 
 val typesafeDependencies = Seq (
-  "com.typesafe.akka" %% "akka-http" % "10.0.11",
-  "com.typesafe.akka" %% "akka-stream" % "2.5.5",
-  "com.typesafe.akka" %% "akka-actor"  % "2.5.5",
+  "com.typesafe.akka" %% "akka-http" % "10.1.1",
+  "com.typesafe.akka" %% "akka-stream" % "2.5.11",
+  "com.typesafe.akka" %% "akka-actor"  % "2.5.11",
   "com.typesafe" % "config" % "1.3.1",
   "com.typesafe.akka" %% "akka-testkit" % "2.5.+" % "test",
   "com.typesafe.akka" %% "akka-http-testkit" % "10.+" % "test",
@@ -21,7 +21,7 @@ val testDependencies = Seq(
   "org.scalatest" %% "scalatest" % "3.0.3" % "test",
   "org.scalacheck" %% "scalacheck" % "1.13.+",
   "net.databinder.dispatch" %% "dispatch-core" % "+" % "test",
-  "com.dimafeng" %% "testcontainers-scala" % "0.14.0" % "test",
+  "com.dimafeng" %% "testcontainers-scala" % "0.16.0" % "test",
 )
 
 val loggingDependencies = Seq(
@@ -62,6 +62,11 @@ libraryDependencies in ThisBuild ++= Seq(
 ) ++ testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
 
 mainClass in assembly := Some("SimpleBlockChain")
+
+(test in Test) := {
+  assembly.value
+  (test in Test).value
+}
 
 test in assembly := {}//TODO
 assemblyMergeStrategy in assembly := {

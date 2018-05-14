@@ -42,7 +42,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
       passPhraseSavedByUser = false
       currentPassPhrase = List.empty
       shufflePassPhrase = List.empty
-      sender() ! NewAccountEvents.SignUpCancelled
+      sender() ! NewAccountEvents.SignUpCancelled()
   }
 
   private def savedPassPhrase:Receive = {
@@ -62,6 +62,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
       if (currentPassPhrase == confirmPhraseSeq){
         val privateId = Base58.encode(Sha256(currentPassPhrase.mkString(",").getBytes("UTF-8")))
         val publicSeed = Base58.encode(Sha256(privateId))
+        log.debug(s"privateId:$privateId, seed:$publicSeed")
         userKeySet += UserKey (publicSeed, privateId)
         log.debug(s"seed set:$userKeySet")
         signUpStarted = false
@@ -75,7 +76,7 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
     * @return
     */
   private def receivedPassword:Receive = {
-    case NewAccountEvents.ReceivedPassword(pwd) =>
+    case NewAccountEvents.ReceivedPassword(_, pwd) =>
       log.debug(s"password : $pwd")
       currentPassPhrase = List.empty
       shufflePassPhrase = List.empty
@@ -84,10 +85,11 @@ class NewAccActor(store:LSMStore) extends Actor with ScorexLogging{
         (Base58.decode(publicSeed), privateId)
       } match {
         case Some ((Success(publicSeed), privateId)) =>
+          log.debug(s"seed:$publicSeed, privateId:$privateId, ${Encryption.encrypt(pwd, privateId)}")
           store.update(
             ByteArrayWrapper(publicSeed ++ String.valueOf(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)).getBytes()), Seq(),
             Seq (ByteArrayWrapper(publicSeed) -> ByteArrayWrapper(Encryption.encrypt(pwd, privateId).getBytes("UTF-8"))))
-          sender() ! NewAccountEvents.ReceivedPassword(pwd)
+          sender() ! NewAccountEvents.ReceivedPassword(SeedWithAddress (Base58.encode(publicSeed), ""), pwd)
           userKeySet.clear()
         case _ =>
           sender() ! NewAccountEvents.ErrorEvent("Seed or PrivateId is corrupted")

@@ -20,7 +20,11 @@ object Encryption {
     Base64.encode(cipher.doFinal(value.getBytes("UTF-8")))
   }
 
-  def decrypt(key: String, encryptedValue: String) = Try {java.util.Base64.getDecoder.decode(encryptedValue) }
+  def decrypt(key: String, encryptedValue: String): Try[String] = {
+    val cipher: Cipher = Cipher.getInstance("AES/ECB/PKCS5PADDING")
+    cipher.init(Cipher.DECRYPT_MODE, keyToSpec(key))
+    Base64.decode(encryptedValue).map(ev =>new String(cipher.doFinal(ev)) )
+  }
 
   def keyToSpec(key: String): SecretKeySpec = {
     var keyBytes: Array[Byte] = (SALT + key).getBytes("UTF-8")
