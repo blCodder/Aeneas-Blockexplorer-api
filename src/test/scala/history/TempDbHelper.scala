@@ -10,9 +10,17 @@ import org.apache.commons.io.FileUtils
   * @version ${VERSION}
   */
 object TempDbHelper {
-  def mkdir:File = {
+  def mkdir: File = {
     val uuid = UUID.randomUUID()
     val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/$uuid/blocks")
+    del (testFile)
+    testFile.mkdirs()
+    testFile
+  }
+
+  def mkdir2: File = {
+    val uuid = UUID.randomUUID()
+    val testFile = new File(s"${System.getenv("AENEAS_TESTPATH")}/$uuid/blocks2")
     del (testFile)
     testFile.mkdirs()
     testFile

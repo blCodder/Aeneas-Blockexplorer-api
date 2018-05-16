@@ -26,7 +26,7 @@ import scala.util.Try
 
 // This file was transfered from Twinscoin example.
 
-case class SimpleBoxTransaction(from: IndexedSeq[(PublicKey25519Proposition, Nonce)],
+case class SimpleBoxTransaction(from: IndexedSeq[(PublicKey25519Proposition, Value)],
                                 to: IndexedSeq[(PublicKey25519Proposition, Value)],
                                 signatures: IndexedSeq[Signature25519],
                                 override val fee: Long,
@@ -112,7 +112,7 @@ object SimpleBoxTransaction {
 
   def nonceFromDigest(digest: Array[Byte]): Nonce = Nonce @@ Longs.fromByteArray(digest.take(8))
 
-  def apply(from: IndexedSeq[(PrivateKey25519, Nonce)],
+  def apply(from: IndexedSeq[(PrivateKey25519, Value)],
             to: IndexedSeq[(PublicKey25519Proposition, Value)],
             fee: Long,
             timestamp: Long): SimpleBoxTransaction = {
@@ -149,7 +149,7 @@ object SimpleBoxTransaction {
     require(from.map(_._3.toLong).sum - outputs.map(_._2.toLong).sum == fee)
 
     val timestamp = System.currentTimeMillis()
-    SimpleBoxTransaction(from.map(t => t._1 -> t._2), outputs, fee, timestamp)
+    SimpleBoxTransaction(from.map(t => t._1 -> t._3), outputs, fee, timestamp)
   }
 
 }
@@ -184,7 +184,7 @@ object SimpleBoxTransactionSerializer extends Serializer[SimpleBoxTransaction] {
     val from = (0 until fromLength) map { i =>
       val pk = PublicKey @@ bytes.slice(s + i * elementLength, s + (i + 1) * elementLength - 8)
       val v = Longs.fromByteArray(bytes.slice(s + (i + 1) * elementLength - 8, s + (i + 1) * elementLength))
-      (PublicKey25519Proposition(pk), Nonce @@ v)
+      (PublicKey25519Proposition(pk), Value @@ v)
     }
 
     val s2 = s + fromLength * elementLength

@@ -1,9 +1,10 @@
 package api.account
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.Actor
 import api.util.Encryption
+import history.AeneasHistory
 import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
 import scorex.core.settings.ScorexSettings
 import scorex.core.utils.{ByteStr, ScorexLogging}
@@ -18,7 +19,7 @@ import scala.util.{Failure, Success}
   * @author luger. Created on 07.03.18.
   * @version ${VERSION}
   */
-class LoginActor(settings: ScorexSettings, store:LSMStore) extends Actor with ScorexLogging{
+class LoginActor(history: AeneasHistory, settings: ScorexSettings, store:LSMStore) extends Actor with ScorexLogging{
   val logged = new AtomicBoolean(false)
 
   def login (): Receive = {
@@ -42,7 +43,7 @@ class LoginActor(settings: ScorexSettings, store:LSMStore) extends Actor with Sc
                 case Success(idInBase58) =>
                   log.debug(s"privateId : ${Base58.encode(Sha256(idInBase58))}")
                   if (seed == Base58.encode(Sha256(idInBase58))) {
-                    val wallet = AeneasWallet.readOrGenerate(settings, ByteStr(Sha256(idInBase58)))
+                    val wallet = AeneasWallet.readOrGenerate(history, settings, ByteStr(Sha256(idInBase58)))
                     val publicKeys = wallet.publicKeys.toSeq.sortBy(_.address)
                     logged.getAndSet(true)
                     val seedWithAddress = SeedWithAddress(seed, publicKeys.headOption.map(_.address).getOrElse(""))
@@ -64,7 +65,7 @@ class LoginActor(settings: ScorexSettings, store:LSMStore) extends Actor with Sc
     case NewAccountEvents.GetSavedSeeds() =>
       val seeds = store.getAll().map{pair =>
         val (seed, _) = pair
-        val wallet = AeneasWallet.readOrGenerate(settings, ByteStr(seed.data))
+        val wallet = AeneasWallet.readOrGenerate(history, settings, ByteStr(seed.data))
         val publicKeys = wallet.publicKeys.toSeq.sortBy(_.address)
         publicKeys.zipWithIndex.sortBy(_._2).foreach{s =>
           val (x, i) = s
@@ -86,7 +87,7 @@ class LoginActor(settings: ScorexSettings, store:LSMStore) extends Actor with Sc
     case NewAccountEvents.GetSeedWithAddress(seed) =>
       Base58.decode(seed) match {
         case Success(seedBytes) =>
-          val wallet = AeneasWallet.readOrGenerate(settings, ByteStr(seedBytes))
+          val wallet = AeneasWallet.readOrGenerate(history, settings, ByteStr(seedBytes))
           log.debug(s"seedWithAddress: wallet:$wallet, publicKeys:${wallet.publicKeys}")
           val publicKeys = wallet.publicKeys.toSeq.sortBy(_.address)
           val seedWithAddr = SeedWithAddress(seed, publicKeys.headOption.map(_.address).getOrElse(""))

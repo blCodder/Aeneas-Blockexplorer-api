@@ -19,7 +19,7 @@ package viewholder
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import akka.actor.ActorRef
-import api.account.SignUpMessagesType.{LoggedIn, Logout, PwdConfirmed}
+import api.account.SignUpMessagesType.{LoggedIn, Logout}
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool, SimpleBoxTransactionSerializer}
 import history.AeneasHistory
@@ -28,7 +28,7 @@ import history.sync.VerySimpleSyncInfo
 import mining.Miner.{MinerAlive, StartMining, StopMining}
 import network.BlockchainDownloader.DownloadEnded
 import scorex.core.ModifierTypeId
-import scorex.core.mainviews.NodeViewHolder.{CurrentView, EventType}
+import scorex.core.mainviews.NodeViewHolder.CurrentView
 import scorex.core.mainviews.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
 import scorex.core.mainviews.{NodeViewHolder, NodeViewModifier}
 import scorex.core.network.NodeViewSynchronizer.ReceivableMessages.{ChangedHistory, NodeViewHolderEvent}
@@ -69,7 +69,6 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
 
    //var nodeView = restoreState().getOrElse(updateChainState().get)
 
-
    private def checkShouldUpdate() : Boolean =
       AeneasHistory.readOrGenerate(settings, minerSettings).height <= 0
 
@@ -88,7 +87,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       log.debug(s"AeneasWallet.exists : ${AeneasWallet.exists(settings)}")
       val history = AeneasHistory.readOrGenerate(settings, minerSettings)
       val minState = SimpleMininalState.readOrGenerate(settings)
-      val wallet = Some(AeneasWallet.readOrGenerate(settings, 1))
+      val wallet = Some(AeneasWallet.readOrGenerate(history, settings, 1))
       val memPool = SimpleBoxTransactionMemPool.emptyPool
 
       log.debug(s"AeneasViewHolder.restoreState : history length is ${history.height}")
@@ -109,7 +108,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       // should be empty
       val history = AeneasHistory.readOrGenerate(settings, minerSettings)
       val minState = SimpleMininalState.readOrGenerate(settings)
-      val wallet = Some(AeneasWallet.readOrGenerate(settings, 1))
+      val wallet = Some(AeneasWallet.readOrGenerate(history, settings, 1))
       val memPool = SimpleBoxTransactionMemPool.emptyPool
       notifyAeneasSubscribers(NodeViewEvent.UpdateHistory, ChangedHistory(history))
       Some(history, minState, wallet, memPool)
@@ -188,7 +187,7 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       case LoggedIn(seed) =>
          Base58.decode(seed) match {
             case Success(seedBytes) =>
-               val newVault = AeneasWallet.readOrGenerate(settings, ByteStr(seedBytes), 1)
+               val newVault = AeneasWallet.readOrGenerate(history, settings, ByteStr(seedBytes), 1)
                updateNodeView(None, None, Option(newVault), None)
                log.debug(
                   s"""set new vault value: ${nodeView._3}
@@ -238,6 +237,10 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
       case GetDataFromCurrentView(f) =>
          log.debug(s"handleAeneasSubscribe :$f")
          sender() ! f(CurrentView(history(), minimalState(), vault(), memoryPool()))
+   }
+
+   protected def recalculateBalance() = {
+      val wallet = nodeView._3
    }
 
    override def receive: Receive =

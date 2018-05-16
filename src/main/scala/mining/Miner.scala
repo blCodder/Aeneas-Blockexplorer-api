@@ -65,7 +65,7 @@ class Miner(viewHolderRef: ActorRef,
 
    // Should equals to processor's ticks for this thread per 60 seconds.
    // TODO: rework for each specific user machine processor frequency.
-   private val maxCycles = 200000
+   private val maxCycles = 2000000
 
    // Should equals to processor's ticks for this thread per 60 seconds.
    private val minHashLiterals = 2
@@ -88,6 +88,12 @@ class Miner(viewHolderRef: ActorRef,
       else hits
    }
 
+   /**
+     * Update current mempool from nodeView.
+     * It happens where mining process is active.
+     * @param viewHolderRef
+     * @return
+     */
    private def updateMempool(viewHolderRef : ActorRef) : SimpleBoxTransactionMemPool = {
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
       Await.result(currentViewAwait, currentViewTimer)
@@ -138,17 +144,28 @@ class Miner(viewHolderRef: ActorRef,
       else mineBlock(block, activeMempool, tryCount + 1)
    }
 
-   def powIteration(parentId: BlockId,
-                    difficulty: BigInt,
-                    settings: SimpleMiningSettings,
-                    proposition: PublicKey25519Proposition,
-                    blockGenerationDelay: FiniteDuration,
+   /**
+     * It fills mining mempool with specific transactions.
+     * They are described here : @see
+     * @see https://github.com/AeneasPlatform/Aeneas/issues/49
+     * @param memPool
+     * @return
+     */
+   // TODO: Implement it.
+   private def fillMempool(memPool: SimpleBoxTransactionMemPool) = ???
+
+   def miningProcess(parentId: BlockId,
+                     difficulty: BigInt,
+                     settings: SimpleMiningSettings,
+                     proposition: PublicKey25519Proposition,
+                     blockGenerationDelay: FiniteDuration,
                    ): Option[PowBlock] = {
       val nonce = Math.abs(Random.nextLong())
       val ts = System.currentTimeMillis()
 
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
       currentMemPool = Await.result(currentViewAwait, currentViewTimer)
+
       currentUnconfirmed = currentMemPool.getUnconfirmed()
       log.debug(s"Current unconfirmed transaction pool size : ${currentUnconfirmed.size}")
 
@@ -219,11 +236,9 @@ class Miner(viewHolderRef: ActorRef,
             cancellableOpt = Some(Cancellable.run() { status =>
                Future {
                   var foundBlock: Option[PowBlock] = None
-                  var attemps = 0
-
                   while (status.nonCancelled && foundBlock.isEmpty) {
-                     foundBlock = powIteration(parentId, difficulty, settings, pubkey, settings.blockGenDelay)
-                     log.info(s"New block status : ${if (foundBlock.isDefined) "mined" else "in process"} at $attemps iteration")
+                     foundBlock = miningProcess(parentId, difficulty, settings, pubkey, settings.blockGenDelay)
+                     log.info(s"New block status : ${if (foundBlock.isDefined) "mined" else "in process"}")
                   }
                   p.success(foundBlock)
                   log.info(s"New block : ${foundBlock.get.encodedId}")

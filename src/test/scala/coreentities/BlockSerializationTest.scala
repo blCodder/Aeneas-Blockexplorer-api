@@ -2,6 +2,9 @@ package coreentities
 
 import block.{PowBlock, PowBlockCompanion, PowBlockHeader}
 import commons.SimpleBoxTransactionGenerator
+import history.{AeneasHistory, TempDbHelper}
+import history.storage.AeneasHistoryStorage
+import io.iohk.iodb.LSMStore
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.transaction.state.PrivateKey25519Companion
 import scorex.crypto.hash.Digest32
@@ -14,10 +17,15 @@ import wallet.AeneasWallet
   */
 class BlockSerializationTest extends FunSuite with Matchers {
    test("Transaction extraction test") {
-      val generator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(AeneasSettings.read().scorexSettings))
+      val settings = AeneasSettings.read()
+      val testFile = TempDbHelper.mkdir
+      val store = new LSMStore(testFile, maxJournalEntryCount = 200)
+      val storage = new AeneasHistoryStorage(store, settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
+
+      val generator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(history, settings.scorexSettings))
       val txPool = generator.syncGeneratingProcess(5).toSeq
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
-      val settings = AeneasSettings.read()
 
       val block = new PowBlock(
          settings.miningSettings.GenesisParentId,
@@ -44,7 +52,12 @@ class BlockSerializationTest extends FunSuite with Matchers {
    test("Non-empty block serialization") {
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
       val settings = AeneasSettings.read()
-      val generator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(AeneasSettings.read().scorexSettings))
+      val testFile = TempDbHelper.mkdir
+      val store = new LSMStore(testFile, maxJournalEntryCount = 200)
+      val storage = new AeneasHistoryStorage(store, settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
+
+      val generator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(history, settings.scorexSettings))
 
       val txPool = generator.syncGeneratingProcess(100).toSeq
 
@@ -66,7 +79,12 @@ class BlockSerializationTest extends FunSuite with Matchers {
    test("Empty block serialization") {
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
       val settings = AeneasSettings.read()
-      val generator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(AeneasSettings.read().scorexSettings))
+      val testFile = TempDbHelper.mkdir
+      val store = new LSMStore(testFile, maxJournalEntryCount = 200)
+      val storage = new AeneasHistoryStorage(store, settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
+
+      val generator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(history, settings.scorexSettings))
 
       val block = new PowBlock(
          settings.miningSettings.GenesisParentId,

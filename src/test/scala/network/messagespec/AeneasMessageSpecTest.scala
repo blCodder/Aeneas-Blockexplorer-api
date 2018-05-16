@@ -2,6 +2,9 @@ package network.messagespec
 
 import block.PowBlock
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionGenerator, SimpleBoxTransactionSerializer}
+import history.{AeneasHistory, TempDbHelper}
+import history.storage.AeneasHistoryStorage
+import io.iohk.iodb.LSMStore
 import org.scalatest.{FunSuite, Matchers}
 import scorex.core.ModifierId
 import scorex.core.transaction.state.PrivateKey25519Companion
@@ -80,10 +83,15 @@ class AeneasMessageSpecTest extends FunSuite with Matchers {
    }
 
    test("Seq of PoW blocks with various txs + request spec serialize/deserialize correctly") {
-      val settings = AeneasSettings.read()
       val genesisAccount = PrivateKey25519Companion.generateKeys("genesisBlock".getBytes)
-      val txGenerator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(settings.scorexSettings))
 
+      val settings = AeneasSettings.read()
+      val testFile = TempDbHelper.mkdir
+      val store = new LSMStore(testFile, maxJournalEntryCount = 200)
+      val storage = new AeneasHistoryStorage(store, settings.miningSettings)
+      var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
+
+      val txGenerator = new SimpleBoxTransactionGenerator(AeneasWallet.readOrGenerate(history, settings.scorexSettings))
       val txPool1 : Seq[SimpleBoxTransaction] = txGenerator.syncGeneratingProcess(30)
       val txPool2 : Seq[SimpleBoxTransaction] = txGenerator.syncGeneratingProcess(50)
       val txPool3 : Seq[SimpleBoxTransaction] = txGenerator.syncGeneratingProcess(10)

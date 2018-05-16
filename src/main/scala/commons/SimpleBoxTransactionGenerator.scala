@@ -39,6 +39,28 @@ class SimpleBoxTransactionGenerator(wallet: AeneasWallet) extends ScorexLogging 
       else generate(wallet)
    }
 
+   final def generate(wallet: AeneasWallet, otherWallet: AeneasWallet): Try[SimpleBoxTransaction] = {
+      if (Random.nextInt(100) == 1)
+         ex.clear()
+      val pubkeys = wallet.publicKeys.toSeq
+      if (pubkeys.lengthCompare(10) < 0)
+         wallet.generateNewSecret()
+
+      if (pubkeys.nonEmpty) {
+         val valueToTransfer = Value @@ Random.nextInt(40).toLong
+         val recipients = otherWallet
+            .publicKeys
+            .take(1)
+            .toSeq
+            .map(el => (el, Value @@ Random.nextInt(100).toLong))
+
+         val tx = SimpleBoxTransaction.create(wallet, recipients, Random.nextInt(5), ex)
+         tx.map(t => t.boxIdsToOpen.foreach(id => ex += id))
+         tx
+      }
+      else generate(wallet, otherWallet)
+   }
+
    @tailrec
    final def generatingProcess(duration: FiniteDuration = defaultDuration, count : Int = 0) : ArrayBuffer[SimpleBoxTransaction] = {
       if (count == 100) txPool
@@ -53,13 +75,26 @@ class SimpleBoxTransactionGenerator(wallet: AeneasWallet) extends ScorexLogging 
    }
 
    @tailrec
-   final def syncGeneratingProcess(count : Int = 100) : ArrayBuffer[SimpleBoxTransaction] = {
+   final def syncGeneratingProcess(count: Int = 100) : ArrayBuffer[SimpleBoxTransaction] = {
       if (count == 0) txPool
       else {
          val txGenerationTrying = generate(wallet)
          if (txGenerationTrying.isSuccess)
             txPool.append(txGenerationTrying.get)
          syncGeneratingProcess(count - 1)
+      }
+   }
+
+   @tailrec
+   final def multipleWalletGeneratingProcess(count: Int = 100,
+                                             wallet: AeneasWallet,
+                                             toWallet: AeneasWallet) : ArrayBuffer[SimpleBoxTransaction] = {
+      if (count == 0) txPool
+      else {
+         val txGenerationTrying = generate(wallet, toWallet)
+         if (txGenerationTrying.isSuccess)
+            txPool.append(txGenerationTrying.get)
+         multipleWalletGeneratingProcess(count - 1, wallet, toWallet)
       }
    }
 }

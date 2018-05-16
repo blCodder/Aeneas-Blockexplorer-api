@@ -1,20 +1,20 @@
 package api.account
 
-import java.io.File
 import java.time.{LocalDateTime, ZoneOffset}
 
 import akka.actor.ActorSystem
-import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
-import history.TempDbHelper
-import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
-import org.scalatest._
-import settings.AeneasSettings
 import akka.pattern.ask
+import akka.testkit.{ImplicitSender, TestActorRef, TestKit, TestProbe}
 import akka.util.Timeout
 import api.util.Encryption
+import history.storage.AeneasHistoryStorage
+import history.{AeneasHistory, TempDbHelper}
+import io.iohk.iodb.{ByteArrayWrapper, LSMStore}
+import org.scalatest._
 import scorex.core.utils.ScorexLogging
 import scorex.crypto.encode.Base58
 import scorex.crypto.hash.Sha256
+import settings.AeneasSettings
 
 import scala.concurrent.duration._
 import scala.util.Success
@@ -36,6 +36,8 @@ class LoginActorTest(_system: ActorSystem)
   lazy val t = java.io.File.createTempFile("pre", "post")
   implicit lazy val timeout = Timeout(5.seconds)
   lazy val store = new LSMStore(testFile, maxJournalEntryCount = 200)
+  val storage = new AeneasHistoryStorage(store, settings.miningSettings)
+  var history = new AeneasHistory(storage, Seq(), settings.miningSettings)
   val seedPhrase = "aeneas"
 
   val privateId = Base58.encode(Sha256(seedPhrase.mkString(",").getBytes("UTF-8")))
@@ -56,7 +58,7 @@ class LoginActorTest(_system: ActorSystem)
     val savedSeedsMessage = NewAccountEvents.SignIn(testPublicSeed, pwd)
     val scorexSettings = settings.scorexSettings.copy(
       dataDir = t, logDir = t)
-    val actorRef = TestActorRef(new LoginActor(scorexSettings, store))
+    val actorRef = TestActorRef(new LoginActor(history, scorexSettings, store))
     val f = actorRef ? savedSeedsMessage
     val Success(r : NewAccountEvents.GeneratedSeed) = f.value.get
     log.info (s"r = $r")
@@ -70,7 +72,7 @@ class LoginActorTest(_system: ActorSystem)
     val savedSeedsMessage = NewAccountEvents.GetSavedSeeds()
     val scorexSettings = settings.scorexSettings.copy(
       dataDir = t, logDir = t)
-    val actorRef = TestActorRef(new LoginActor(scorexSettings, store))
+    val actorRef = TestActorRef(new LoginActor(history, scorexSettings, store))
     val f = actorRef ? savedSeedsMessage
     val Success(r : NewAccountEvents.ReturnSavedSeeds) = f.value.get
     log.info (s"r = $r")
