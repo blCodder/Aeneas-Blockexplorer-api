@@ -65,10 +65,8 @@ class Miner(viewHolderRef: ActorRef,
 
    // Should equals to processor's ticks for this thread per 60 seconds.
    // TODO: rework for each specific user machine processor frequency.
-   private val maxCycles = 2000000
-
-   // Should equals to processor's ticks for this thread per 60 seconds.
-   private val minHashLiterals = 2
+   private val maxCycles = settings.miningCPULoad
+   private val minHashLiterals = settings.minHashLiterals
    // Best fitness block if can't find any better.
    var bestFitnessBlock : PowBlock = _
 
@@ -147,7 +145,7 @@ class Miner(viewHolderRef: ActorRef,
    /**
      * It fills mining mempool with specific transactions.
      * They are described here : @see
-     * @see https://github.com/AeneasPlatform/Aeneas/issues/49
+     * @see https://github.com/AeneasPlatform/Aeneas/issues/53
      * @param memPool
      * @return
      */

@@ -240,7 +240,11 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    }
 
    protected def recalculateBalance() = {
-      val wallet = nodeView._3
+      val walletOpt = nodeView._3
+      walletOpt match {
+         case Some(wallet) =>
+            wallet.fullCheckoutInputsOutputs()
+      }
    }
 
    override def receive: Receive =
