@@ -18,7 +18,9 @@ package viewholder
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.pattern.ask
+import akka.util.Timeout
 import api.account.SignUpMessagesType.{LoggedIn, Logout}
 import block.{AeneasBlock, PowBlock, PowBlockCompanion}
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool, SimpleBoxTransactionSerializer}
@@ -26,6 +28,8 @@ import history.AeneasHistory
 import history.sync.AeneasSynchronizer.{PreStartDownloadRequest, SynchronizerAlive}
 import history.sync.VerySimpleSyncInfo
 import mining.Miner.{MinerAlive, StartMining, StopMining}
+import mining.PreStartMiningSettingsSetup
+import mining.PreStartMiningSettingsSetup.LaunchCPULoader
 import network.BlockchainDownloader.DownloadEnded
 import scorex.core.ModifierTypeId
 import scorex.core.mainviews.NodeViewHolder.CurrentView
@@ -44,6 +48,8 @@ import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent, NotifySu
 import wallet.AeneasWallet
 
 import scala.collection.mutable
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.util.Success
 
 
@@ -68,6 +74,21 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
    private lazy val prestartDownloadEnded : AtomicBoolean = new AtomicBoolean(false)
 
    //var nodeView = restoreState().getOrElse(updateChainState().get)
+   override def preStart(): Unit = {
+      // we should recalculate each specific machine work frequency
+      // for synchronous mining process.
+      implicit val currentViewTimer = 70.second
+      implicit val timeoutView = new Timeout(currentViewTimer)
+
+      log.debug(s"Old CPU load value : ${minerSettings.miningCPULoad}")
+      val system = ActorSystem("testSystem")
+      val setupActor = system.actorOf(Props(new PreStartMiningSettingsSetup(minerSettings)))
+
+      val currentViewAwait = ask(setupActor, LaunchCPULoader).mapTo[Boolean]
+      val b = Await.result(currentViewAwait, currentViewTimer)
+      log.debug(s"New CPU load value : ${minerSettings.miningCPULoad}")
+      system.terminate()
+   }
 
    private def checkShouldUpdate() : Boolean =
       AeneasHistory.readOrGenerate(settings, minerSettings).height <= 0
@@ -270,9 +291,24 @@ class AeneasNodeViewHolder(settings : ScorexSettings, minerSettings: SimpleMinin
      * state (result of log's modifiers application to pre-historical(genesis) state,
      * user-specific information stored in vault (it could be e.g. a wallet), and a memory pool.
      */
-   private val nodeViewState = new AtomicReference(restoreState().getOrElse(updateChainState().get))
-   override protected def updateNodeViewState(newNodeView:NodeView):Unit = nodeViewState.set(newNodeView)
-   override protected def nodeView: NodeView = nodeViewState.get()
+   private val nodeViewState = Option.apply(new AtomicReference(restoreState().getOrElse(updateChainState().get)))
+
+   override protected def updateNodeViewState(newNodeView: NodeView): Unit = {
+      nodeViewState match {
+         case Some(nodeView) =>
+            nodeView.set(newNodeView)
+      }
+   }
+
+   override protected def nodeView: NodeView = {
+      nodeViewState match {
+         case Some(nodeView) =>
+            nodeView.get()
+         case None =>
+            new AtomicReference(restoreState().getOrElse(updateChainState().get)).get()
+      }
+   }
+
 }
 
 object AeneasNodeViewHolder {

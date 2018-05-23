@@ -99,8 +99,7 @@ case class PreStartMiningSettingsSetup(settings : SimpleMiningSettings) extends 
 
    override def receive: Receive = {
       case LaunchCPULoader =>
-         val time = loadResolver()
-         println(time)
+         loadResolver()
    }
 }
 

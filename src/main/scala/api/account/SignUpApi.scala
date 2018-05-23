@@ -24,7 +24,7 @@ import scala.concurrent.{Await, ExecutionContext}
   */
 class SignUpApi(minerRef: ActorRef, nodeViewHolderRef: ActorRef, aeneasSettingsVal: AeneasSettings, store: LSMStore)(
   implicit systemVal: ActorSystem, executionContextVal: ExecutionContext) extends SignUpService with ScorexLogging {
-  private implicit val currentViewTimer: FiniteDuration = 5.millisecond
+  private implicit val currentViewTimer: FiniteDuration = 75.second
   private implicit val currentTimeout = new Timeout(currentViewTimer)
 
   override lazy val aeneasSettings: AeneasSettings = aeneasSettingsVal
