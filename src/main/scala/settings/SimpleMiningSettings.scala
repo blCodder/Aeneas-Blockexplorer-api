@@ -23,9 +23,12 @@ case class SimpleMiningSettings(offlineGen : Boolean,
                                 blockGenDelay: FiniteDuration,
                                 targetBlockDelay : FiniteDuration,
                                 initialDifficulty : BigInt,
-                                mineThreshold : Int) {
+                                var miningCPULoad : Long,
+                                minHashLiterals : Int) {
    lazy val MaxTarget = BigInt(1, Array.fill(36)(Byte.MinValue))
    lazy val GenesisParentId = ModifierId @@ Array.fill(32)(1: Byte)
+
+   def setLoad(cpuLoad : Long) = miningCPULoad = cpuLoad
 }
 
 
