@@ -22,7 +22,7 @@ import akka.actor.{Actor, ActorRef}
 import akka.pattern.ask
 import akka.util.Timeout
 import block.{AeneasBlock, PowBlock}
-import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
+import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool, Value}
 import history.AeneasHistory
 import history.storage.AeneasHistoryStorage
 import scorex.core.LocallyGeneratedModifiersMessages.ReceivableMessages.LocallyGeneratedModifier
@@ -42,10 +42,11 @@ import viewholder.AeneasNodeViewHolder.{AeneasSubscribe, NodeViewEvent}
 import wallet.AeneasWallet
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.util.Random
+import scala.util.{Random, Success}
 
 /**
   * @author is Alex Syrotenko (@flystyle)
@@ -94,7 +95,7 @@ class Miner(viewHolderRef: ActorRef,
      */
    private def updateMempool(viewHolderRef : ActorRef) : SimpleBoxTransactionMemPool = {
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
-      Await.result(currentViewAwait, currentViewTimer)
+      applyServiceTx(viewHolderRef, Await.result(currentViewAwait, currentViewTimer))
    }
 
    @tailrec
@@ -163,6 +164,7 @@ class Miner(viewHolderRef: ActorRef,
 
       val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyMempool)).mapTo[SimpleBoxTransactionMemPool]
       currentMemPool = Await.result(currentViewAwait, currentViewTimer)
+      currentMemPool = applyServiceTx(viewHolderRef, currentMemPool)
 
       currentUnconfirmed = currentMemPool.getUnconfirmed()
       log.debug(s"Current unconfirmed transaction pool size : ${currentUnconfirmed.size}")
@@ -272,6 +274,47 @@ object Miner extends App with ScorexLogging {
    def applyMempool(currentView: CurrentView[AeneasHistory,
       SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool]) : SimpleBoxTransactionMemPool = {
       currentView.pool
+   }
+
+   def applyWallet(currentView: CurrentView[AeneasHistory,
+      SimpleMininalState, AeneasWallet, SimpleBoxTransactionMemPool]) : AeneasWallet = {
+      currentView.vault
+   }
+
+   /**
+     * Service transactions are applying to the mempool (issue-55).
+     * 80 Ashes - mining reward,
+     * 10 Ashes - public benefit fund reward.
+     * 8  Ashes - master nodes support.
+     * 2  Ashes - owner  support.
+     * @param viewHolderRef
+     * @param txPool
+     * @return
+     */
+   def applyServiceTx(viewHolderRef : ActorRef, txPool: SimpleBoxTransactionMemPool) : SimpleBoxTransactionMemPool = {
+      implicit val currentViewDuration: FiniteDuration = 5.millisecond
+      implicit val currentViewTimer: Timeout = new Timeout(currentViewDuration)
+      val currentViewAwait = ask(viewHolderRef, GetDataFromCurrentView(applyWallet)).mapTo[AeneasWallet]
+      val wallet = Await.result(currentViewAwait, currentViewDuration)
+
+      // unconditional trust to these addresses, ignores Try
+      val fundAddress = PublicKey25519Proposition.validPubKey("Æx3fbGHUiSMSC8pHDRCJB1qnNfeykA2XtrvrHrxmaWfdxJdhPPuV").get
+      val mastersRewardAddress = PublicKey25519Proposition.validPubKey("Æx2yKq4jutF3Q8CkHgr7gtPJ3rDKpkwNKENVcF6PsbRnRDzebh8r").get
+      val ownerSupportAddress = PublicKey25519Proposition.validPubKey("Æx3RCDLUPNp3QnGQqeh88NPTuPBarYiiVivWTVdZULLMrf6Hs73c").get
+
+      val serviceTx = IndexedSeq(
+         // reward for the block    : 80 * 10^7 granoes.
+         SimpleBoxTransaction.create(wallet, Seq(wallet.publicKeys.head -> Value @@ 800000000.toLong), 0).get,
+         // public benefit fund fee : 20 * 10^7 granoes.
+         SimpleBoxTransaction.create(wallet, Seq(fundAddress            -> Value @@ 100000000.toLong), 0).get,
+         // master nodes support fee: 8 * 10^7 granoes.
+         SimpleBoxTransaction.create(wallet, Seq(mastersRewardAddress   -> Value @@ 80000000.toLong), 0).get,
+         // owners support fee      : 2 * 10^7 granoes.
+         SimpleBoxTransaction.create(wallet, Seq(ownerSupportAddress    -> Value @@ 20000000.toLong), 0).get
+      )
+      txPool.put(serviceTx) match {
+         case Success(pool) => pool
+      }
    }
 
    sealed trait MinerEvent extends NodeViewHolderEvent
