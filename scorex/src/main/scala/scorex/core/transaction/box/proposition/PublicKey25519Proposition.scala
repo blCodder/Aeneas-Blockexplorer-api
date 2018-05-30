@@ -52,7 +52,7 @@ object PublicKey25519Proposition {
   def calcCheckSum(bytes: Array[Byte]): Array[Byte] = Blake2b256.hash(bytes).take(ChecksumLength)
 
   def validPubKey(address: String): Try[PublicKey25519Proposition] =
-    Base58.decode(address).flatMap { addressBytes =>
+    Base58.decode(address.replace("Æx", "")).flatMap { addressBytes =>
       if (addressBytes.length != AddressLength)
         Failure(new Exception("Wrong address length"))
       else {
