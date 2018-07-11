@@ -18,6 +18,7 @@ import scorex.core.network.NetworkController
 import scorex.core.network.message.MessageSpec
 import scorex.core.settings.ScorexSettings
 import scorex.core.transaction.box.proposition.PublicKey25519Proposition
+import scorex.crypto.encode.Base58
 import settings.{AeneasSettings, SimpleLocalInterface}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
@@ -86,7 +87,7 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
     def blockByIdRoute: Route = pathPrefix("block") {
       get {
         entity(as[Json]) {
-          val request = Base58.deco Remaining.
+          val request = ModifierId @@ Base58.decode(Remaining.toString())
           onSuccess(requestHandler ? request) {
             case response: Json =>
               complete(response)
