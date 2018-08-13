@@ -1,16 +1,16 @@
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
-import block.AeneasBlock
+import block.{AeneasBlock, PowBlock}
 import com.typesafe.config.ConfigFactory
 import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
 import history.AeneasHistory
 import history.sync.{AeneasSynchronizer, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
-import io.circe.Json
-import io.circe.syntax._
+import scala.util.{Failure, Success}
+import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
 import network.BlockchainDownloader
 import scorex.core.ModifierId
 import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
@@ -22,6 +22,7 @@ import scorex.crypto.encode.Base58
 import settings.{AeneasSettings, SimpleLocalInterface}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
+import api.account.circe.Codecs._
 
 class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
   override type P = PublicKey25519Proposition
@@ -43,8 +44,12 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
 
   override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
 
+  private val miner: ActorRef = actorSystem.actorOf(Props(new Actor {
+    override def receive: Receive = ???
+  }))
+
   override val localInterface: ActorRef =
-    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, null, null)))
+    actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
 
   val downloaderActor: ActorRef =
     actorSystem.actorOf(Props(
@@ -55,8 +60,8 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
       new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL](networkControllerRef,
         nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
 
-  val host = "localhost"
-  val port = 8080
+  val host = simpleSettings.explorerSettings.bindAddress.getAddress.getHostAddress
+  val port = simpleSettings.explorerSettings.bindAddress.getPort
 
   val requestHandler: ActorRef = actorSystem.actorOf(Props(new RequestHandler(nodeViewHolderRef)))
 
@@ -72,34 +77,39 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
 
     implicit val executionContext = actorSystem.dispatcher
 
-    def syncInfoRoute: Route = path("sync") {
+    def explorerRoutes: Route =
       get {
-        entity(as[Json]) {
-          onSuccess(requestHandler ? GetSyncInfo) {
-            case response: Json =>
+        path("height") {
+          onComplete(requestHandler ? GetHeight) {
+            case Success(response) =>
               complete(response)
-            case _ => complete(StatusCodes.InternalServerError)
+            case Failure(exception) =>
+              log.error(s"Error: ${exception.toString}")
+              complete(StatusCodes.InternalServerError)
           }
-        }
-      }
-    }
-
-    def blockByIdRoute: Route = pathPrefix("block") {
-      get {
-        entity(as[Json]) {
-          val request = ModifierId @@ Base58.decode(Remaining.toString())
-          onSuccess(requestHandler ? request) {
-            case response: Json =>
-              complete(response)
-            case _ => complete(StatusCodes.InternalServerError)
+        } ~
+          path("block" / Segment) { (request) =>
+            val id = ModifierId @@ Base58.decode(request)
+            onComplete(requestHandler ? id) {
+              case Success(response) =>
+                complete(response)
+              case Failure(exception) =>
+                log.error(s"Error: ${exception.toString}")
+                complete(StatusCodes.InternalServerError)
+            }
+          } ~
+          path("blockIds" / LongNumber / IntNumber) { (start, amount) =>
+            onComplete(requestHandler ? BlockIds(start, amount)) {
+              case Success(response) =>
+                complete(response)
+              case Failure(exception) =>
+                log.error(s"Error: ${exception.toString}")
+                complete(StatusCodes.InternalServerError)
+            }
           }
-        }
       }
-    }
 
-    val route = syncInfoRoute ~ blockByIdRoute
-
-    val bindingFuture = Http().bindAndHandle(route, host, port)
+    val bindingFuture = Http().bindAndHandle(explorerRoutes, host, port)
 
     //on unexpected shutdown
     Runtime.getRuntime.addShutdownHook(new Thread() {
@@ -140,10 +150,11 @@ case class LoadSettings() {
   sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
 }
 
-//object HistoryUpdater {
-//  final val name = "history-updater"
-//}
-case object GetSyncInfo
+case object GetHeight
+
+case class BlockIds(start: Long, amount: Int)
+
+case class GetBlock(modifierId: ModifierId)
 
 
 class RequestHandler(aeneasNodeViewHolderRef: ActorRef) extends Actor {
@@ -157,10 +168,26 @@ class RequestHandler(aeneasNodeViewHolderRef: ActorRef) extends Actor {
     case response: AeneasHistory => {
       cachedHistory = response
     }
-    case GetSyncInfo => {
-      sender() ! cachedHistory.syncInfo.serializer.toBytes(cachedHistory.syncInfo).asJson
+
+    case GetHeight => {
+      sender() ! cachedHistory.syncInfo.blockchainHeight
     }
-    case response: ModifierId =>
-      sender() ! cachedHistory.modifierById(response).get.asJson
+
+    case response: ModifierId => {
+      sender() ! cachedHistory.modifierById(response).asInstanceOf[PowBlock].asJson
+    }
+
+    case response: BlockIds => {
+      if (response.start < cachedHistory.height) {
+        val difference = (cachedHistory.height - response.start).toInt + 1
+        val block = cachedHistory.modifierById(cachedHistory.lastBlockIds(cachedHistory.bestBlock(),
+          difference).last).asInstanceOf[PowBlock]
+        sender() ! cachedHistory.lastBlockIds(block, response.amount).map(x => Base58.encode(x))
+      } else {
+
+        sender() ! cachedHistory.lastBlockIds(cachedHistory.bestBlock(), response.amount).map(x => Base58.encode(x))
+      }
+    }
   }
 }
+
