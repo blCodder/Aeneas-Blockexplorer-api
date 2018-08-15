@@ -89,8 +89,21 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
           }
         } ~
           path("block" / Segment) { (request) =>
-            val id = ModifierId @@ Base58.decode(request)
-            onComplete(requestHandler ? id) {
+            Base58.decode(request) match {
+              case Success(id) =>
+                onComplete(requestHandler ? (ModifierId @@ id)) {
+                  case Success(response) =>
+                    complete(response)
+                  case Failure(exception) =>
+                    log.error(s"Error: ${exception.toString}")
+                    complete(StatusCodes.InternalServerError)
+                }
+              case _ =>
+                complete(StatusCodes.InternalServerError)
+            }
+          } ~
+          path("blockIds" / LongNumber / IntNumber) { (start, amount) =>
+            onComplete(requestHandler ? GetBlockIds(start, amount)) {
               case Success(response) =>
                 complete(response)
               case Failure(exception) =>
@@ -98,14 +111,22 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
                 complete(StatusCodes.InternalServerError)
             }
           } ~
-          path("blockIds" / LongNumber / IntNumber) { (start, amount) =>
-            onComplete(requestHandler ? BlockIds(start, amount)) {
-              case Success(response) =>
-                complete(response)
-              case Failure(exception) =>
-                log.error(s"Error: ${exception.toString}")
+          path("blocks" / Segment / IntNumber) { (start, amount) =>
+            Base58.decode(start) match {
+              case Success(idByteArray) => {
+                onComplete(requestHandler ? GetBlocks(ModifierId @@ idByteArray, amount)) {
+                  case Success(response) =>
+                    complete(response)
+                  case Failure(exception) =>
+                    log.error(s"Error: ${exception.toString}")
+                    complete(StatusCodes.InternalServerError)
+                }
+              }
+              case _ => {
                 complete(StatusCodes.InternalServerError)
+              }
             }
+
           }
       }
 
@@ -152,9 +173,11 @@ case class LoadSettings() {
 
 case object GetHeight
 
-case class BlockIds(start: Long, amount: Int)
+case class GetBlockIds(start: Long, amount: Int)
 
-case class GetBlock(modifierId: ModifierId)
+case class GetBlocks(start: ModifierId, amount: Int)
+
+case class GetBlock(id: ModifierId)
 
 
 class RequestHandler(aeneasNodeViewHolderRef: ActorRef) extends Actor {
@@ -173,20 +196,23 @@ class RequestHandler(aeneasNodeViewHolderRef: ActorRef) extends Actor {
       sender() ! cachedHistory.syncInfo.blockchainHeight
     }
 
-    case response: ModifierId => {
-      sender() ! cachedHistory.modifierById(response).asInstanceOf[PowBlock].asJson
+    case request: GetBlock => {
+      sender() ! cachedHistory.modifierById(request.id).asInstanceOf[PowBlock]
     }
 
-    case response: BlockIds => {
-      if (response.start < cachedHistory.height) {
-        val difference = (cachedHistory.height - response.start).toInt + 1
+    case request: GetBlockIds => {
+      if (request.start < cachedHistory.height) {
+        val difference = (cachedHistory.height - request.start).toInt + 1
         val block = cachedHistory.modifierById(cachedHistory.lastBlockIds(cachedHistory.bestBlock(),
           difference).last).asInstanceOf[PowBlock]
-        sender() ! cachedHistory.lastBlockIds(block, response.amount).map(x => Base58.encode(x))
+        sender() ! cachedHistory.lastBlockIds(block, request.amount).map(x => Base58.encode(x))
       } else {
-
-        sender() ! cachedHistory.lastBlockIds(cachedHistory.bestBlock(), response.amount).map(x => Base58.encode(x))
+        sender() ! cachedHistory.lastBlockIds(cachedHistory.bestBlock(), request.amount).map(x => Base58.encode(x))
       }
+    }
+    case request: GetBlocks => {
+      sender() ! cachedHistory.lastBlockIds(cachedHistory.modifierById(request.start).asInstanceOf[PowBlock],
+        request.amount).map(x => cachedHistory.modifierById(x))
     }
   }
 }
