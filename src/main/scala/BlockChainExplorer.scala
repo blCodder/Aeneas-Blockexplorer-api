@@ -1,67 +1,41 @@
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, Props}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, StatusCodes}
+import akka.http.scaladsl.marshalling.ToResponseMarshallable
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.StatusCodes.InternalServerError
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.pattern.ask
 import akka.stream.ActorMaterializer
-import block.{AeneasBlock, PowBlock}
-import com.typesafe.config.ConfigFactory
-import commons.{SimpleBoxTransaction, SimpleBoxTransactionMemPool}
+import akka.util.Timeout
+import api.account.circe.Codecs.powBlockEncoder
+import block.PowBlock
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import history.AeneasHistory
-import history.sync.{AeneasSynchronizer, VerySimpleSyncInfo, VerySimpleSyncInfoMessageSpec}
-import scala.util.{Failure, Success}
-import io.circe._, io.circe.generic.auto._, io.circe.parser._, io.circe.syntax._
-import network.BlockchainDownloader
 import scorex.core.ModifierId
-import scorex.core.api.http.{ApiRoute, NodeViewApiRoute}
 import scorex.core.network.NetworkController
-import scorex.core.network.message.MessageSpec
-import scorex.core.settings.ScorexSettings
-import scorex.core.transaction.box.proposition.PublicKey25519Proposition
 import scorex.crypto.encode.Base58
 import settings.{AeneasSettings, SimpleLocalInterface}
 import viewholder.AeneasNodeViewHolder
 import viewholder.AeneasNodeViewHolder.AeneasSubscribe
-import api.account.circe.Codecs._
 
-class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
-  override type P = PublicKey25519Proposition
-  override type TX = SimpleBoxTransaction
-  override type PMOD = AeneasBlock
-  override type NVHT = AeneasNodeViewHolder
-  type SI = VerySimpleSyncInfo
-  type HIS = AeneasHistory
-  type MPOOL = SimpleBoxTransactionMemPool
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success}
+
+
+
+class BlockChainExplorer(loadSettings: LoadSettings) extends SimpleBlockChain(loadSettings: LoadSettings) with FailFastCirceSupport {
 
   private val simpleSettings: AeneasSettings = loadSettings.simpleSettings
-
-  override implicit lazy val settings: ScorexSettings = AeneasSettings.read().scorexSettings
-  override protected lazy val additionalMessageSpecs: Seq[MessageSpec[_]] = Seq(VerySimpleSyncInfoMessageSpec)
-
-  override protected implicit lazy val actorSystem: ActorSystem = ActorSystem("AeneasActors", loadSettings.aeneasActorConfig)
-
-  override val nodeViewHolderRef: ActorRef = actorSystem.actorOf(Props(new AeneasNodeViewHolder(settings, simpleSettings.miningSettings)))
-
-  override val apiRoutes: Seq[ApiRoute] = Seq(NodeViewApiRoute[P, TX](settings.restApi, nodeViewHolderRef))
-
   private val miner: ActorRef = actorSystem.actorOf(Props(new Actor {
-    override def receive: Receive = ???
+    override def receive = {
+      case _ =>
+    }
   }))
 
   override val localInterface: ActorRef =
     actorSystem.actorOf(Props(new SimpleLocalInterface(nodeViewHolderRef, miner, simpleSettings.miningSettings)))
-
-  val downloaderActor: ActorRef =
-    actorSystem.actorOf(Props(
-      new BlockchainDownloader(networkControllerRef, nodeViewHolderRef, settings.network, downloadSpecs.tail.tail)))
-
-  override val nodeViewSynchronizer: ActorRef =
-    actorSystem.actorOf(Props(
-      new AeneasSynchronizer[P, TX, SI, VerySimpleSyncInfoMessageSpec.type, PMOD, HIS, MPOOL](networkControllerRef,
-        nodeViewHolderRef, localInterface, VerySimpleSyncInfoMessageSpec, settings.network, timeProvider, downloaderActor)))
-
-  val host = simpleSettings.explorerSettings.bindAddress.getAddress.getHostAddress
-  val port = simpleSettings.explorerSettings.bindAddress.getPort
 
   val requestHandler: ActorRef = actorSystem.actorOf(Props(new RequestHandler(nodeViewHolderRef)))
 
@@ -77,60 +51,60 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
 
     implicit val executionContext = actorSystem.dispatcher
 
-    def explorerRoutes: Route =
-      get {
-        path("height") {
-          onComplete(requestHandler ? GetHeight) {
-            case Success(response) =>
-              complete(response)
-            case Failure(exception) =>
-              log.error(s"Error: ${exception.toString}")
-              complete(StatusCodes.InternalServerError)
-          }
-        } ~
-          path("block" / Segment) { (request) =>
-            Base58.decode(request) match {
-              case Success(id) =>
-                onComplete(requestHandler ? (ModifierId @@ id)) {
-                  case Success(response) =>
-                    complete(response)
-                  case Failure(exception) =>
-                    log.error(s"Error: ${exception.toString}")
-                    complete(StatusCodes.InternalServerError)
-                }
+    def explorerRoutes: Route = {
+
+      implicit val timeout: Timeout = FiniteDuration(20, "seconds")
+        get {
+          path("height") {
+            onSuccess(requestHandler ? GetHeight) {
+              case response: Long =>
+                complete(response)
               case _ =>
                 complete(StatusCodes.InternalServerError)
             }
           } ~
-          path("blockIds" / LongNumber / IntNumber) { (start, amount) =>
-            onComplete(requestHandler ? GetBlockIds(start, amount)) {
-              case Success(response) =>
-                complete(response)
-              case Failure(exception) =>
-                log.error(s"Error: ${exception.toString}")
-                complete(StatusCodes.InternalServerError)
-            }
-          } ~
-          path("blocks" / Segment / IntNumber) { (start, amount) =>
-            Base58.decode(start) match {
-              case Success(idByteArray) => {
-                onComplete(requestHandler ? GetBlocks(ModifierId @@ idByteArray, amount)) {
-                  case Success(response) =>
-                    complete(response)
-                  case Failure(exception) =>
-                    log.error(s"Error: ${exception.toString}")
-                    complete(StatusCodes.InternalServerError)
+            path("block" / Segment) { (request) =>
+              Base58.decode(request) match {
+                case Success(id) =>
+                  onSuccess(requestHandler ? GetBlock((ModifierId @@ id))) {
+                    case response: PowBlock =>
+                      complete(response)
+                    case _ =>
+                      complete(StatusCodes.InternalServerError)
+                  }
+                case _ =>
+                  complete(StatusCodes.InternalServerError)
+              }
+            } ~
+            path("blockIds" / LongNumber / IntNumber) { (start, amount) =>
+              onSuccess(requestHandler ? GetBlockIds(start, amount)) {
+                case response: Seq[String] =>
+                  complete(response)
+                case _ =>
+                  complete(StatusCodes.InternalServerError)
+              }
+            } ~
+            path("blocks" / Segment / IntNumber) { (start, amount) =>
+              Base58.decode(start) match {
+                case Success(idByteArray) => {
+                  onSuccess(requestHandler ? GetBlocks(ModifierId @@ idByteArray, amount)) {
+                    case response: Seq[PowBlock] =>
+                      complete(response)
+                    case _ =>
+                      complete(StatusCodes.InternalServerError)
+                  }
+                }
+                case _ => {
+                  complete(StatusCodes.InternalServerError)
                 }
               }
-              case _ => {
-                complete(StatusCodes.InternalServerError)
-              }
             }
+        }
+    }
 
-          }
-      }
-
-    val bindingFuture = Http().bindAndHandle(explorerRoutes, host, port)
+    val bindingFuture = Http().bindAndHandle(explorerRoutes,
+      simpleSettings.explorerSettings.bindAddress.getAddress.getHostAddress,
+      simpleSettings.explorerSettings.bindAddress.getPort)
 
     //on unexpected shutdown
     Runtime.getRuntime.addShutdownHook(new Thread() {
@@ -152,24 +126,25 @@ class BlockChainExplorer(loadSettings: LoadSettings) extends AeneasApp {
     })
   }
 
-
-}
-
-object BlockChainExplorer {
-  def main(args: Array[String]): Unit = {
-    val loadSettings = LoadSettings()
-    new BlockChainExplorer(loadSettings).run()
+  def sendResponse[T](eventualResult: Future[T])(implicit marshaller: T ⇒ ToResponseMarshallable): Route = {
+    onComplete(eventualResult) {
+      case Success(result) ⇒
+        complete(result)
+      case Failure(e) ⇒
+        log.error(s"Error: ${e.toString}")
+        complete(ToResponseMarshallable(InternalServerError))
+    }
   }
+
+  object BlockChainExplorer {
+    def main(args: Array[String]): Unit = {
+      val loadSettings = LoadSettings()
+      new BlockChainExplorer(loadSettings).run()
+    }
+  }
+
 }
 
-case class LoadSettings() {
-  val simpleSettings: AeneasSettings = AeneasSettings.read()
-  private val root = ConfigFactory.load()
-  val aeneasActorConfig = root.getConfig("Aeneas")
-  println(aeneasActorConfig.toString)
-  // set logging path:
-  sys.props += ("log.dir" -> simpleSettings.scorexSettings.logDir.getAbsolutePath)
-}
 
 case object GetHeight
 
@@ -212,8 +187,9 @@ class RequestHandler(aeneasNodeViewHolderRef: ActorRef) extends Actor {
     }
     case request: GetBlocks => {
       sender() ! cachedHistory.lastBlockIds(cachedHistory.modifierById(request.start).asInstanceOf[PowBlock],
-        request.amount).map(x => cachedHistory.modifierById(x))
+        request.amount).map(x => cachedHistory.modifierById(x).asInstanceOf[PowBlock])
     }
   }
 }
+
 

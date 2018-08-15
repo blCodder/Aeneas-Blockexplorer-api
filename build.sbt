@@ -61,7 +61,7 @@ libraryDependencies in ThisBuild ++= Seq(
   "commons-net" % "commons-net" % "3.+"
 ) ++ testDependencies ++ loggingDependencies ++ typesafeDependencies ++ scorexDependencies
 
-mainClass in assembly := Some("SimpleBlockChain")
+mainClass in assembly := Some("BlockChainExplorer")
 
 (test in Test) := {
   assembly.value
