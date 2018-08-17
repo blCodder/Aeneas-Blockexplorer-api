@@ -166,15 +166,12 @@ class RequestHandler(aeneasNodeViewHolderRef: ActorRef) extends Actor {
     case response: AeneasHistory => {
       cachedHistory = response
     }
-
     case GetHeight => {
       sender() ! cachedHistory.syncInfo.blockchainHeight
     }
-
     case request: GetBlock => {
       sender() ! cachedHistory.modifierById(request.id).asInstanceOf[PowBlock]
     }
-
     case request: GetBlockIds => {
       if (request.start < cachedHistory.height) {
         val difference = (cachedHistory.height - request.start).toInt + 1
